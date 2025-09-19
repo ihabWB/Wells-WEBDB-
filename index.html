@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Wells Database (PWA)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <meta name="theme-color" content="#0e7490" />
+  <link rel="stylesheet" href="./styles.css" />
+  <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script defer src="./config.js"></script>
+  <script defer src="./app.js"></script>
+</head>
+<body>
+  <header>
+    <h1>Groundwater Wells</h1>
+    <div class="status">
+      <span id="netStatus">Offline</span>
+      <button id="btnSync" type="button">Sync Now</button>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab active" data-tab="wells">Wells</button>
+    <button class="tab" data-tab="readings">Monthly Readings</button>
+    <button class="tab" data-tab="quality">Water Quality</button>
+    <button class="tab" data-tab="maintenance">Maintenance</button>
+    <button class="tab" data-tab="service">Service Areas</button>
+    <button class="tab" data-tab="list">List Wells</button>
+  </nav>
+
+  <main>
+    <section id="wells" class="panel active">
+      <h2>Add Well</h2>
+      <form id="formWell">
+        <div class="field">
+          <label>Well Code*</label>
+          <input name="well_code" required />
+        </div>
+        <div class="field">
+          <label>Well Name</label>
+          <input name="well_name" />
+        </div>
+        <div class="grid-3">
+          <div class="field">
+            <label>Governorate</label>
+            <input name="governorate" />
+          </div>
+          <div class="field">
+            <label>District</label>
+            <input name="district" />
+          </div>
+          <div class="field">
+            <label>Village</label>
+            <input name="village" />
+          </div>
+        </div>
+        <div class="grid-3">
+          <div class="field">
+            <label>X</label>
+            <input name="x" type="number" step="any" />
+          </div>
+          <div class="field">
+            <label>Y</label>
+            <input name="y" type="number" step="any" />
+          </div>
+          <div class="field">
+            <label>Z</label>
+            <input name="z" type="number" step="any" />
+          </div>
+        </div>
+        <div class="field">
+          <label>Owner / Service Provider</label>
+          <input name="owner_service_provider" />
+        </div>
+        <div class="grid-3">
+          <div class="field">
+            <label>Well Type</label>
+            <select name="well_type">
+              <option value="">—</option>
+              <option>Production</option>
+              <option>Monitoring</option>
+              <option>Agricultural</option>
+              <option>Domestic</option>
+              <option>Industrial</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Drilling Year</label>
+            <input name="drilling_year" type="number" min="1900" max="2100" />
+          </div>
+          <div class="field">
+            <label>Status</label>
+            <select name="current_status">
+              <option value="">—</option>
+              <option>Active</option>
+              <option>Inactive</option>
+              <option>Under Repair</option>
+              <option>Abandoned</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid-3">
+          <div class="field">
+            <label>Well Depth (m)</label>
+            <input name="well_depth_m" type="number" step="any" />
+          </div>
+          <div class="field">
+            <label>Casing Depth (m)</label>
+            <input name="casing_depth_m" type="number" step="any" />
+          </div>
+          <div class="field">
+            <label>Pump Type</label>
+            <input name="pump_type" />
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="field">
+            <label>Pump Capacity (m³/hr)</label>
+            <input name="pump_capacity_m3_per_hr" type="number" step="any" />
+          </div>
+          <div class="field">
+            <label>Design Capacity (m³/year)</label>
+            <input name="design_capacity_m3_per_year" type="number" step="any" />
+          </div>
+        </div>
+        <div class="field">
+          <label>Remarks</label>
+          <textarea name="remarks"></textarea>
+        </div>
+        <button type="submit">Save Well</button>
+        <div class="msg" id="msgWell"></div>
+      </form>
+    </section>
+
+    <section id="readings" class="panel">
+      <h2>Add Monthly Reading</h2>
+      <form id="formReading">
+        <div class="field">
+          <label>Well*</label>
+          <select id="readingWell" name="well_id" required></select>
+        </div>
+        <div class="grid-3">
+          <div class="field">
+            <label>Reading Date*</label>
+            <input name="reading_date" type="date" required />
+          </div>
+          <div class="field">
+            <label>Meter Last (m³)*</label>
+            <input name="meter_last_m3" type="number" step="any" required />
+          </div>
+          <div class="field">
+            <label>Meter Current (m³)*</label>
+            <input name="meter_current_m3" type="number" step="any" required />
+          </div>
+        </div>
+        <div class="grid-3">
+          <div class="field">
+            <label>Static Water Level (m)</label>
+            <input name="static_water_level_m" type="number" step="any" />
+          </div>
+          <div class="field">
+            <label>Dynamic Water Level (m)</label>
+            <input name="dynamic_water_level_m" type="number" step="any" />
+          </div>
+          <div class="field">
+            <label>Pumping Hours</label>
+            <input name="pumping_hours" type="number" step="any" />
+          </div>
+        </div>
+        <div class="field">
+          <label>Notes</label>
+          <textarea name="notes"></textarea>
+        </div>
+        <div class="field">
+          <label>Monthly Abstraction (auto)</label>
+          <input id="computedAbstraction" disabled />
+        </div>
+        <button type="submit">Save Reading</button>
+        <div class="msg" id="msgReading"></div>
+      </form>
+    </section>
+
+    <section id="quality" class="panel">
+      <h2>Add Water Quality</h2>
+      <form id="formQuality">
+        <div class="field">
+          <label>Well*</label>
+          <select id="qualityWell" name="well_id" required></select>
+        </div>
+        <div class="grid-3">
+          <div class="field">
+            <label>Sample Date*</label>
+            <input name="sample_date" type="date" required />
+          </div>
+          <div class="field">
+            <label>Parameter Name*</label>
+            <input name="parameter_name" required placeholder="e.g., EC, pH, TDS" />
+          </div>
+          <div class="field">
+            <label>Value</label>
+            <input name="parameter_value" type="number" step="any" />
+          </div>
+        </div>
+        <div class="grid-3">
+          <div class="field">
+            <label>Unit</label>
+            <input name="unit" placeholder="e.g., µS/cm, pH, mg/L" />
+          </div>
+          <div class="field">
+            <label>Sampling Agency</label>
+            <input name="sampling_agency" />
+          </div>
+          <div class="field">
+            <label>Technician</label>
+            <input name="technician" />
+          </div>
+        </div>
+        <div class="field">
+          <label>Remarks</label>
+          <textarea name="remarks"></textarea>
+        </div>
+        <button type="submit">Save Quality</button>
+        <div class="msg" id="msgQuality"></div>
+      </form>
+    </section>
+
+    <section id="maintenance" class="panel">
+      <h2>Add Maintenance Visit</h2>
+      <form id="formMaintenance">
+        <div class="field">
+          <label>Well*</label>
+          <select id="maintenanceWell" name="well_id" required></select>
+        </div>
+        <div class="grid-3">
+          <div class="field">
+            <label>Visit Date*</label>
+            <input name="visit_date" type="date" required />
+          </div>
+          <div class="field">
+            <label>Technician / Team</label>
+            <input name="technician_team" />
+          </div>
+          <div class="field">
+            <label>Activity</label>
+            <input name="activity" placeholder="Repair, Cleaning, Pump Replacement, etc." />
+          </div>
+        </div>
+        <div class="field">
+          <label>Notes</label>
+          <textarea name="notes"></textarea>
+        </div>
+        <div class="field">
+          <label>Cost</label>
+          <input name="cost" type="number" step="any" />
+        </div>
+        <button type="submit">Save Visit</button>
+        <div class="msg" id="msgMaintenance"></div>
+      </form>
+    </section>
+
+    <section id="service" class="panel">
+      <h2>Add Service Area</h2>
+      <form id="formService">
+        <div class="field">
+          <label>Well*</label>
+          <select id="serviceWell" name="well_id" required></select>
+        </div>
+        <div class="grid-2">
+          <div class="field">
+            <label>Community / Facility</label>
+            <input name="community_facility" />
+          </div>
+          <div class="field">
+            <label>Population Served</label>
+            <input name="population_served" type="number" step="1" />
+          </div>
+        </div>
+        <div class="field">
+          <label>Water Demand (m³/month)</label>
+          <input name="water_demand_m3_per_month" type="number" step="any" />
+        </div>
+        <button type="submit">Save Service Area</button>
+        <div class="msg" id="msgService"></div>
+      </form>
+    </section>
+
+    <section id="list" class="panel">
+      <h2>Wells List</h2>
+      <div class="filters">
+        <input id="filterText" placeholder="Search by code or name" />
+        <button id="btnRefresh">Refresh</button>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Code</th>
+            <th>Name</th>
+            <th>Location</th>
+            <th>Type</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="tblWells"></tbody>
+      </table>
+      <p class="hint">Tip: Add wells first so they appear in the dropdowns for other forms.</p>
+    </section>
+  </main>
+
+  <footer>
+    <small>Wells PWA • Offline capable • Uses Supabase (PostgreSQL)</small>
+  </footer>
+</body>
+</html>
