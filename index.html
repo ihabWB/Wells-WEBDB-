@@ -4,8 +4,10 @@
   <meta charset="utf-8" />
   <title>Wells Database (PWA)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#0e7490" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" href="./assets/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="./assets/icon-maskable.svg" />
   <link rel="stylesheet" href="./styles.css" />
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script defer src="./config.js"></script>
@@ -13,10 +15,13 @@
 </head>
 <body>
   <header>
-    <h1>Groundwater Wells</h1>
+    <div class="brand">
+      <img class="logo" src="./assets/icon.svg" alt="Wells logo" width="28" height="28" />
+      <h1> PWA Groundwater Wells</h1>
+    </div>
     <div class="status">
       <span id="netStatus">Offline</span>
-      <button id="btnSync" type="button">Sync Now</button>
+      <button id="btnSync" type="button" class="btn btn-secondary">Sync Now</button>
     </div>
   </header>
 
@@ -32,7 +37,7 @@
   <main>
     <section id="wells" class="panel active">
       <h2>Add Well</h2>
-      <form id="formWell">
+      <form id="formWell" class="card">
         <div class="field">
           <label>Well Code*</label>
           <input name="well_code" required />
@@ -128,14 +133,14 @@
           <label>Remarks</label>
           <textarea name="remarks"></textarea>
         </div>
-        <button type="submit">Save Well</button>
+        <button type="submit" class="btn">Save Well</button>
         <div class="msg" id="msgWell"></div>
       </form>
     </section>
 
     <section id="readings" class="panel">
       <h2>Add Monthly Reading</h2>
-      <form id="formReading">
+      <form id="formReading" class="card">
         <div class="field">
           <label>Well*</label>
           <select id="readingWell" name="well_id" required></select>
@@ -176,14 +181,14 @@
           <label>Monthly Abstraction (auto)</label>
           <input id="computedAbstraction" disabled />
         </div>
-        <button type="submit">Save Reading</button>
+        <button type="submit" class="btn">Save Reading</button>
         <div class="msg" id="msgReading"></div>
       </form>
     </section>
 
     <section id="quality" class="panel">
       <h2>Add Water Quality</h2>
-      <form id="formQuality">
+      <form id="formQuality" class="card">
         <div class="field">
           <label>Well*</label>
           <select id="qualityWell" name="well_id" required></select>
@@ -220,14 +225,14 @@
           <label>Remarks</label>
           <textarea name="remarks"></textarea>
         </div>
-        <button type="submit">Save Quality</button>
+        <button type="submit" class="btn">Save Quality</button>
         <div class="msg" id="msgQuality"></div>
       </form>
     </section>
 
     <section id="maintenance" class="panel">
       <h2>Add Maintenance Visit</h2>
-      <form id="formMaintenance">
+      <form id="formMaintenance" class="card">
         <div class="field">
           <label>Well*</label>
           <select id="maintenanceWell" name="well_id" required></select>
@@ -254,14 +259,14 @@
           <label>Cost</label>
           <input name="cost" type="number" step="any" />
         </div>
-        <button type="submit">Save Visit</button>
+        <button type="submit" class="btn">Save Visit</button>
         <div class="msg" id="msgMaintenance"></div>
       </form>
     </section>
 
     <section id="service" class="panel">
       <h2>Add Service Area</h2>
-      <form id="formService">
+      <form id="formService" class="card">
         <div class="field">
           <label>Well*</label>
           <select id="serviceWell" name="well_id" required></select>
@@ -280,30 +285,34 @@
           <label>Water Demand (m³/month)</label>
           <input name="water_demand_m3_per_month" type="number" step="any" />
         </div>
-        <button type="submit">Save Service Area</button>
+        <button type="submit" class="btn">Save Service Area</button>
         <div class="msg" id="msgService"></div>
       </form>
     </section>
 
     <section id="list" class="panel">
       <h2>Wells List</h2>
-      <div class="filters">
-        <input id="filterText" placeholder="Search by code or name" />
-        <button id="btnRefresh">Refresh</button>
+      <div class="card">
+        <div class="filters">
+          <input id="filterText" placeholder="Search by code or name" />
+          <button id="btnRefresh" class="btn btn-secondary">Refresh</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Code</th>
+                <th>Name</th>
+                <th>Location</th>
+                <th>Type</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="tblWells"></tbody>
+          </table>
+        </div>
+        <p class="hint">Tip: Add wells first so they appear in the dropdowns for other forms.</p>
       </div>
-      <table>
-        <thead>
-          <tr>
-            <th>Code</th>
-            <th>Name</th>
-            <th>Location</th>
-            <th>Type</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody id="tblWells"></tbody>
-      </table>
-      <p class="hint">Tip: Add wells first so they appear in the dropdowns for other forms.</p>
     </section>
   </main>
 
