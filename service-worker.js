@@ -1,11 +1,12 @@
-// Basic offline caching
-const CACHE_NAME = 'wells-pwa-v1';
+// Basic offline caching (bumped version to refresh cache)
+const CACHE_NAME = 'wells-pwa-v3';
 const ASSETS = [
   './',
   './index.html',
   './styles.css',
   './app.js',
-  './manifest.webmanifest'
+  './manifest.webmanifest',
+  './assets/logo PWA.png' // cache your logo
 ];
 
 self.addEventListener('install', (event) => {
@@ -23,9 +24,7 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   const req = event.request;
-  if (req.method !== 'GET') {
-    return; // Let POST/PUT go to network (client handles queue)
-  }
+  if (req.method !== 'GET') return; // Let POST/PUT go to network (client handles queue)
   event.respondWith(
     caches.match(req).then(cached => {
       const fetchPromise = fetch(req).then(networkRes => {
