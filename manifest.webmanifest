@@ -1,8 +1,17 @@
 {
   "name": "Groundwater Wells",
   "short_name": "Wells",
+  "description": "A lightweight PWA for managing wells, readings, water quality, and maintenance.",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#0b1220",
-  "theme_color": "#0e7490"
+  "theme_color": "#0e7490",
+  "icons": [
+    {
+      "src": "assets/logo%20PWA.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
 }
