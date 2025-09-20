@@ -2,11 +2,21 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Wells Database (PWA)</title>
+  <title>Wells ---Database (PWA)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#0e7490" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="./styles.css" />
+  <!-- Map-specific minimal styles -->
+  <style>
+    #map { width:100%; height:62vh; border:1px solid #ccc; border-radius:10px; }
+    .hint { color:#7b8a9a; font-size:0.9rem; }
+  </style>
+  <!-- Libraries -->
+  <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/proj4@2.10.0/dist/proj4.js"></script>
+  <!-- App scripts -->
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script defer src="./config.js"></script>
   <script defer src="./app.js"></script>
@@ -27,6 +37,7 @@
     <button class="tab" data-tab="maintenance">Maintenance</button>
     <button class="tab" data-tab="service">Service Areas</button>
     <button class="tab" data-tab="list">List Wells</button>
+    <button class="tab" data-tab="mapPanel">Map</button>
   </nav>
 
   <main>
@@ -84,14 +95,13 @@
             <input name="z" type="number" step="any" />
           </div>
         </div>
-        <p class="hint">Note: X,Y are in EPSG:28191 (Palestine 1923 grid). We’ll convert to WGS84 when showing on the map.</p>
-
-        <div class="field">
-          <label>Owner / Service Provider</label>
-          <input name="owner_service_provider" />
-        </div>
+        <p class="hint">Note: X,Y are in EPSG:28191 (Palestine 1923 grid). They’ll be converted to WGS84 on the map.</p>
 
         <div class="grid-2">
+          <div class="field">
+            <label>Owner / Service Provider</label>
+            <input name="owner_service_provider" />
+          </div>
           <div class="field">
             <label>Aquifer</label>
             <select name="aquifer">
@@ -101,6 +111,9 @@
               <option>North-Eastern</option>
             </select>
           </div>
+        </div>
+
+        <div class="grid-3">
           <div class="field">
             <label>Well Type</label>
             <select name="well_type">
@@ -112,39 +125,10 @@
               <option>Industrial</option>
             </select>
           </div>
-        </div>
-
-        <div class="grid-3">
           <div class="field">
             <label>Drilling Year</label>
             <input name="drilling_year" type="number" min="1900" max="2100" />
           </div>
-          <div class="field">
-            <label>Well Depth (m)</label>
-            <input name="well_depth_m" type="number" step="any" />
-          </div>
-          <div class="field">
-            <label>Casing Depth (m)</label>
-            <input name="casing_depth_m" type="number" step="any" />
-          </div>
-        </div>
-
-        <div class="grid-3">
-          <div class="field">
-            <label>Pump Type</label>
-            <input name="pump_type" />
-          </div>
-          <div class="field">
-            <label>Pump Capacity (m³/hr)</label>
-            <input name="pump_capacity_m3_per_hr" type="number" step="any" />
-          </div>
-          <div class="field">
-            <label>Design Capacity (m³/year)</label>
-            <input name="design_capacity_m3_per_year" type="number" step="any" />
-          </div>
-        </div>
-
-        <div class="grid-3">
           <div class="field">
             <label>Status</label>
             <select name="current_status">
@@ -154,6 +138,32 @@
               <option>Under Repair</option>
               <option>Abandoned</option>
             </select>
+          </div>
+        </div>
+
+        <div class="grid-3">
+          <div class="field">
+            <label>Well Depth (m)</label>
+            <input name="well_depth_m" type="number" step="any" />
+          </div>
+          <div class="field">
+            <label>Casing Depth (m)</label>
+            <input name="casing_depth_m" type="number" step="any" />
+          </div>
+          <div class="field">
+            <label>Pump Type</label>
+            <input name="pump_type" />
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="field">
+            <label>Pump Capacity (m³/hr)</label>
+            <input name="pump_capacity_m3_per_hr" type="number" step="any" />
+          </div>
+          <div class="field">
+            <label>Design Capacity (m³/year)</label>
+            <input name="design_capacity_m3_per_year" type="number" step="any" />
           </div>
         </div>
 
@@ -331,6 +341,7 @@
             <th>Code</th>
             <th>Name</th>
             <th>Location</th>
+            <th>Aquifer</th>
             <th>Type</th>
             <th>Status</th>
           </tr>
@@ -338,6 +349,12 @@
         <tbody id="tblWells"></tbody>
       </table>
       <p class="hint">Tip: Add wells first so they appear in the dropdowns for other forms.</p>
+    </section>
+
+    <section id="mapPanel" class="panel">
+      <h2>Wells Map</h2>
+      <div id="map"></div>
+      <p class="hint">Coordinates are stored as EPSG:28191 and converted to WGS84 for display.</p>
     </section>
   </main>
 
