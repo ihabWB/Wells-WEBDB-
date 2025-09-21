@@ -1,6 +1,6 @@
 /* Accent theme for Batch UI */
 :root {
-  --accent: #0e7490;          /* Change this to your preferred color */
+  --accent: ##0e7490;          /* Change this to your preferred color */
   --accent-rgb: 14,116,144;   /* RGB of --accent for rgba() uses */
   --accent-contrast: #ffffff; /* Text on active button */
 }
