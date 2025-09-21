@@ -237,44 +237,43 @@
         </form>
       </div>
 
-      <!-- BATCH ENTRY (separate from the single form) -->
-      <div id="readingsBatch" style="display:none;">
-        <div class="inline" style="margin-bottom:8px;">
-          <label>Default Well</label>
-          <select id="rbDefaultWell" class="mini"></select>
-          <button id="rbAddRow" type="button">Add Row</button>
-          <button id="rbDuplicateLast" type="button">Duplicate Last</button>
-          <button id="rbClear" type="button">Clear</button>
-          <button id="rbSaveAll" class="btn" type="button">Save All</button>
-          <span id="rbStatus" class="hint"></span>
-        </div>
+      <!-- Replace your existing Batch Entry block with this (single-well batch) -->
+<div id="readingsBatch" style="display:none;">
+  <div class="inline" style="margin-bottom:8px;">
+    <label>Well</label>
+    <select id="rbWell" class="mini"></select>
+    <button id="rbAddRow" type="button">Add Row</button>
+    <button id="rbDuplicateLast" type="button">Duplicate Last (Next Month)</button>
+    <button id="rbClear" type="button">Clear</button>
+    <button id="rbSaveAll" class="btn" type="button">Save All</button>
+    <span id="rbStatus" class="hint"></span>
+  </div>
 
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Well</th>
-                <th>Date</th>
-                <th>Meter Last (m³)</th>
-                <th>Meter Current (m³)</th>
-                <th>Abstraction (m³)</th>
-                <th>Static WL (m)</th>
-                <th>Dynamic WL (m)</th>
-                <th>Pumping Hrs</th>
-                <th>Notes</th>
-                <th>Status</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody id="rbTbody"></tbody>
-          </table>
-        </div>
-        <p class="hint">
-          Abstraction auto-calculates from meters until you type a value (manual override).
-          Save uses upsert on (well, year, month).
-        </p>
-      </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Date</th>
+          <th>Meter Last (m³)</th>
+          <th>Meter Current (m³)</th>
+          <th>Abstraction (m³)</th>
+          <th>Static WL (m)</th>
+          <th>Dynamic WL (m)</th>
+          <th>Pumping Hrs</th>
+          <th>Notes</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="rbTbody"></tbody>
+    </table>
+  </div>
+  <p class="hint">
+    Select a well above. Duplicate Last advances the date to next month. Abstraction is auto-filled by DB if left blank.
+    Save uses upsert on (well, year, month).
+  </p>
+</div>
     </section>
 
     <section id="quality" class="panel">
