@@ -1,0 +1,14 @@
+/* Minimal styles for the batch grid. Adjust to match your theme. */
+.table-wrap { overflow:auto; border:1px solid #e2e8f0; border-radius:10px; background:#fff; }
+table { width:100%; border-collapse: collapse; }
+th, td { padding:8px 10px; border-bottom:1px solid #e2e8f0; font-size: 14px; }
+thead th { position: sticky; top:0; background:#f1f5f9; z-index:1; }
+.hint { color: #64748b; font-size: 12px; }
+.badge { display:inline-block; padding:2px 6px; border-radius:6px; font-size:12px; }
+.badge-ok { background:#10b98122; color:#065f46; border:1px solid #10b98155; }
+.badge-err { background:#ef444422; color:#7f1d1d; border:1px solid #ef444455; }
+.row-error { background:#fee2e2; }
+.inline { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin: 6px 0; }
+.mini { width:140px; }
+.tablike { border:1px solid #e2e8f0; background:#f8fafc; padding:6px 10px; border-radius:6px; cursor:pointer; }
+.tablike.active { background:#e2e8f0; }
