@@ -1,10 +1,10 @@
-// Batch Grid for Monthly Readings (Single-well mode)
+// Batch Grid for Monthly Readings (Single-well mode) — v5
 // - Choose one Well at the top; grid rows are months/dates for that well.
 // - Upserts on (well_id, year, month) with Editable+Trigger for abstraction.
-// - "Duplicate Last" auto-advances the date to the next month.
+// - Deduplicates rows per (well, year-month) to avoid "ON CONFLICT ... cannot affect row a second time".
 (function(){
   'use strict';
-  console.log('[batch] single-well v4 loaded');
+  console.log('[batch] single-well v5 loaded');
 
   function getSb(){
     if (window.$sb) return window.$sb;
@@ -40,7 +40,7 @@
   let rows = [];
   let seq = 1;
 
-  // Wire toggles immediately
+  // Wire toggles
   (function wireToggles(){
     if (btnModeSingle && btnModeBatch && readingsSingle && readingsBatch) {
       btnModeSingle.addEventListener('click', () => {
@@ -69,7 +69,6 @@
     rbClear?.addEventListener('click', ()=> { rows = []; renderBatch(); setBatchStatus('Cleared.'); });
     rbSaveAll?.addEventListener('click', saveAllBatch);
     rbWell?.addEventListener('change', ()=>{
-      // Ensure current rows use the newly selected well (no per-row well in UI)
       rows.forEach(r => r.well_id = rbWell.value || '');
       renderBatch();
     });
@@ -79,7 +78,6 @@
     await ensureSupabase();
     if (sb) {
       await loadWells();
-      // If well not chosen yet, default to first and sync rows
       if (rbWell && !rbWell.value && wells[0]) {
         rbWell.value = wells[0].well_id;
         rows.forEach(r => r.well_id = rbWell.value);
@@ -123,11 +121,11 @@
 
   function addRow(seed){
     const well = rbWell?.value || '';
-    const today = new Date().toISOString().slice(0,10);
+    const today = toFirstOfMonthISO(seed?.date ?? new Date().toISOString().slice(0,10));
     rows.push({
       rid: seq++,
       well_id: well,
-      date: seed?.date ?? today,
+      date: today,
       last: seed?.last ?? '',
       curr: seed?.curr ?? '',
       abs: seed?.abs ?? '',       // if '', save NULL so trigger fills auto
@@ -144,7 +142,7 @@
   function addNextMonthFromLast(){
     const last = rows[rows.length - 1];
     if (!last) { addRow(); return; }
-    const nextDate = addOneMonthISO(last.date);
+    const nextDate = addOneMonthISO(last.date || new Date().toISOString().slice(0,10));
     addRow({
       date: nextDate,
       last: last.curr || last.last,
@@ -185,7 +183,10 @@
       const rid = Number(tr.getAttribute('data-rid'));
       const row = rows.find(x=>x.rid===rid); if (!row) return;
 
-      tr.querySelector('.date')?.addEventListener('change', e => { row.date = e.target.value; validateRow(row); updateRowView(tr, row); });
+      tr.querySelector('.date')?.addEventListener('change', e => {
+        row.date = toFirstOfMonthISO(e.target.value);
+        validateRow(row); updateRowView(tr, row);
+      });
       tr.querySelector('.last')?.addEventListener('input', e => { row.last = e.target.value; if(!row.manualAbs) row.abs=''; validateRow(row); updateRowView(tr, row); });
       tr.querySelector('.curr')?.addEventListener('input', e => { row.curr = e.target.value; if(!row.manualAbs) row.abs=''; validateRow(row); updateRowView(tr, row); });
       tr.querySelector('.abs')?.addEventListener('input', e => { row.abs = e.target.value; row.manualAbs = String(e.target.value).trim() !== ''; validateRow(row); updateRowView(tr, row); });
@@ -212,7 +213,7 @@
 
   function updateRowView(tr, row){
     tr.classList.toggle('row-error', !!row.err);
-    const statusTd = tr.children[9]; // status column index after removing 'Well'
+    const statusTd = tr.children[9]; // status column index
     if (statusTd) statusTd.innerHTML = row.err ? `<span class="badge badge-err">${esc(row.err)}</span>` : `<span class="badge badge-ok">OK</span>`;
     const absEl = tr.querySelector('.abs');
     if (absEl && !row.manualAbs) absEl.placeholder = (calcAuto(row.last,row.curr) ?? '').toString();
@@ -238,13 +239,27 @@
   }
   function esc(s){ return (s ?? '').toString().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
-  function addOneMonthISO(iso){
+  function ymKey(iso){
+    if (!iso) return '';
+    const d = new Date(iso + 'T00:00:00Z');
+    const y = d.getUTCFullYear();
+    const m = String(d.getUTCMonth()+1).padStart(2,'0');
+    return `${y}-${m}`;
+  }
+  function toFirstOfMonthISO(iso){
     if (!iso) return new Date().toISOString().slice(0,10);
-    const d = new Date(iso + 'T00:00:00'); // safe parse
-    const year = d.getUTCFullYear();
-    const month = d.getUTCMonth(); // 0-11
-    const day = Math.min(d.getUTCDate(), 28); // keep safe day to avoid overflow
-    const next = new Date(Date.UTC(year, month + 1, day));
+    const d = new Date(iso + 'T00:00:00Z');
+    const y = d.getUTCFullYear();
+    const m = d.getUTCMonth();
+    const first = new Date(Date.UTC(y, m, 1));
+    return first.toISOString().slice(0,10);
+  }
+  function addOneMonthISO(iso){
+    if (!iso) return toFirstOfMonthISO(new Date().toISOString().slice(0,10));
+    const d = new Date(iso + 'T00:00:00Z');
+    const y = d.getUTCFullYear();
+    const m = d.getUTCMonth();
+    const next = new Date(Date.UTC(y, m+1, 1));
     return next.toISOString().slice(0,10);
   }
 
@@ -258,23 +273,37 @@
     if (bad.length){ setBatchStatus(`Fix ${bad.length} row(s).`, true); renderBatch(); return; }
 
     const well_id = rbWell.value;
-    const payload = rows.map(r => ({
-      well_id,
-      reading_date: r.date,
-      meter_last_m3: valNumOrNull(r.last),
-      meter_current_m3: valNumOrNull(r.curr),
-      monthly_abstraction_m3: r.manualAbs ? valNumOrNull(r.abs) : null,
-      static_water_level_m: valNumOrNull(r.static),
-      dynamic_water_level_m: valNumOrNull(r.dynamic),
-      pumping_hours: valNumOrNull(r.hours),
-      notes: (r.notes||'') || null
-    }));
+
+    // Deduplicate per month to avoid ON CONFLICT updating same row twice
+    const dedup = new Map(); // key: yyyy-mm -> payload
+    for (const r of rows){
+      const key = ymKey(r.date);
+      if (!key) continue;
+      // last one wins (so process in natural order; later rows overwrite earlier)
+      dedup.set(key, {
+        well_id,
+        reading_date: toFirstOfMonthISO(r.date),
+        meter_last_m3: valNumOrNull(r.last),
+        meter_current_m3: valNumOrNull(r.curr),
+        monthly_abstraction_m3: r.manualAbs ? valNumOrNull(r.abs) : null,
+        static_water_level_m: valNumOrNull(r.static),
+        dynamic_water_level_m: valNumOrNull(r.dynamic),
+        pumping_hours: valNumOrNull(r.hours),
+        notes: (r.notes||'') || null
+      });
+    }
+    const payload = Array.from(dedup.values());
+    const collapsed = rows.length - payload.length;
+    if (collapsed > 0){
+      setBatchStatus(`Saving… (collapsed ${collapsed} duplicate month(s))`);
+    }
 
     try{
       const { error } = await sb.from('monthly_readings')
         .upsert(payload, { onConflict: 'well_id,year,month', ignoreDuplicates: false });
+
       if (error) throw error;
-      setBatchStatus(`Saved ${payload.length} row(s).`);
+      setBatchStatus(`Saved ${payload.length} row(s).${collapsed>0?` (${collapsed} duplicates collapsed)`:''}`);
     }catch(e){
       setBatchStatus(`Error: ${e.message}`, true);
       console.error('[batch] saveAll error:', e);
