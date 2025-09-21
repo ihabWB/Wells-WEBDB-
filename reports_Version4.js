@@ -1,4 +1,4 @@
-// Reports module with report picker + global multi-well filter + multi-well Reading List
+// Reports with sub-tabs + per-report multi-well filters + Reading List default "all"
 (function(){
   'use strict';
 
@@ -8,12 +8,12 @@
     ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
     : null;
 
-  // DOM helpers
+  // Helpers
   const $ = (id) => document.getElementById(id);
   const esc = (s) => (s ?? '').toString().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const fmtNum = (n) => Number.isFinite(+n) ? (Math.round(+n*100)/100).toLocaleString() : '';
   const fmtPct = (n) => Number.isFinite(+n) ? `${(Math.round(+n*10)/10).toLocaleString()}%` : '';
-  const getSelectedValues = (sel) => Array.from((sel||{}).selectedOptions||[]).map(o => o.value).filter(Boolean);
+  const getSelVals = (sel) => Array.from((sel||{}).selectedOptions||[]).map(o => o.value).filter(Boolean);
   function csvFromTable(tbody, file){
     const table = tbody?.closest('table'); if (!table) return;
     const rows = Array.from(table.querySelectorAll('tr'));
@@ -25,72 +25,85 @@
     const url = URL.createObjectURL(blob); const a = document.createElement('a');
     a.href = url; a.download = file; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
   }
+  function groupBy(arr, key){ return (arr||[]).reduce((m,x)=>{ const k=String(x[key]||''); (m[k]=m[k]||[]).push(x); return m; },{}); }
+  function ymk(date){ const d=new Date(date); return d.getFullYear()*100 + (d.getMonth()+1); }
+  function mFilter(start,end,getKey){
+    const s = start ? Number(start.replace('-','')) : null;
+    const e = end ? Number(end.replace('-','')) : null;
+    return (r)=>{
+      const k = getKey ? getKey(r) : (r.year*100+r.month);
+      if (s && k < s) return false;
+      if (e && k > e) return false;
+      return true;
+    };
+  }
 
   // Elements
-  // Reading list
-  const readingListWells=$('readingListWells'), btnReadingListSelectAll=$('btnReadingListSelectAll'), btnReadingListClear=$('btnReadingListClear');
-  const readingListFrom=$('readingListFrom'), readingListTo=$('readingListTo'), btnReadingListLoad=$('btnReadingListLoad'), btnReadingListCSV=$('btnReadingListCSV'), tblReadingList=$('tblReadingList'), readingListSummary=$('readingListSummary');
+  // Reading List
+  const readingListWells=$('readingListWells'), readingListFrom=$('readingListFrom'), readingListTo=$('readingListTo'),
+        btnReadingListLoad=$('btnReadingListLoad'), btnReadingListCSV=$('btnReadingListCSV'), tblReadingList=$('tblReadingList'),
+        readingListSummary=$('readingListSummary');
 
-  // Report picker + global wells
-  const reportPicker=$('reportPicker'), rptWells=$('rptWells'), btnRptWellsAll=$('btnRptWellsAll'), btnRptWellsClear=$('btnRptWellsClear');
+  // Reports sub-tabs
+  const reportsTabs = $('reportsTabs');
 
-  // Report-specific controls
-  const rptAStartMonth=$('rptAStartMonth'), rptAEndMonth=$('rptAEndMonth'), btnRptALoad=$('btnRptALoad'), btnRptACSV=$('btnRptACSV'), tblRptA=$('tblRptA'), rptASummary=$('rptASummary');
+  // Per-report controls and tables
+  const rptAWells=$('rptAWells'), rptAStartMonth=$('rptAStartMonth'), rptAEndMonth=$('rptAEndMonth'), btnRptALoad=$('btnRptALoad'), btnRptACSV=$('btnRptACSV'), tblRptA=$('tblRptA'), rptASummary=$('rptASummary');
 
-  const rptBGroupBy=$('rptBGroupBy'), rptBStartMonth=$('rptBStartMonth'), rptBEndMonth=$('rptBEndMonth'), btnRptBLoad=$('btnRptBLoad'), btnRptBCSV=$('btnRptBCSV'), tblRptB=$('tblRptB');
+  const rptBWells=$('rptBWells'), rptBGroupBy=$('rptBGroupBy'), rptBStartMonth=$('rptBStartMonth'), rptBEndMonth=$('rptBEndMonth'), btnRptBLoad=$('btnRptBLoad'), btnRptBCSV=$('btnRptBCSV'), tblRptB=$('tblRptB');
 
-  const rptCDays=$('rptCDays'), btnRptCLoad=$('btnRptCLoad'), btnRptCCSV=$('btnRptCCSV'), tblRptC=$('tblRptC');
+  const rptCWells=$('rptCWells'), rptCDays=$('rptCDays'), btnRptCLoad=$('btnRptCLoad'), btnRptCCSV=$('btnRptCCSV'), tblRptC=$('tblRptC');
 
-  const rptDFrom=$('rptDFrom'), rptDTo=$('rptDTo'), btnRptDLoad=$('btnRptDLoad'), btnRptDCSV=$('btnRptDCSV'), tblRptD=$('tblRptD');
+  const rptDWells=$('rptDWells'), rptDFrom=$('rptDFrom'), rptDTo=$('rptDTo'), btnRptDLoad=$('btnRptDLoad'), btnRptDCSV=$('btnRptDCSV'), tblRptD=$('tblRptD');
 
-  const rptEParam=$('rptEParam'), rptELevel=$('rptELevel'), rptEFrom=$('rptEFrom'), rptETo=$('rptETo'), btnRptELoad=$('btnRptELoad'), btnRptECSV=$('btnRptECSV'), tblRptE=$('tblRptE'), chartQualityEl=$('chartQuality');
+  const rptEWells=$('rptEWells'), rptEParam=$('rptEParam'), rptELevel=$('rptELevel'), rptEFrom=$('rptEFrom'), rptETo=$('rptETo'), btnRptELoad=$('btnRptELoad'), btnRptECSV=$('btnRptECSV'), tblRptE=$('tblRptE'), chartQualityEl=$('chartQuality');
 
-  const rptFStartMonth=$('rptFStartMonth'), rptFEndMonth=$('rptFEndMonth'), btnRptFLoad=$('btnRptFLoad'), btnRptFCSV=$('btnRptFCSV'), tblRptF=$('tblRptF');
+  const rptFWells=$('rptFWells'), rptFStartMonth=$('rptFStartMonth'), rptFEndMonth=$('rptFEndMonth'), btnRptFLoad=$('btnRptFLoad'), btnRptFCSV=$('btnRptFCSV'), tblRptF=$('tblRptF');
 
-  const rptGFrom=$('rptGFrom'), rptGTo=$('rptGTo'), btnRptGLoad=$('btnRptGLoad'), chartLevelsEl=$('chartLevels');
+  const rptGWells=$('rptGWells'), rptGFrom=$('rptGFrom'), rptGTo=$('rptGTo'), btnRptGLoad=$('btnRptGLoad'), chartLevelsEl=$('chartLevels');
 
-  const rptHYear=$('rptHYear'), btnRptHLoad=$('btnRptHLoad'), tblRptH=$('tblRptH');
+  const rptHWells=$('rptHWells'), rptHYear=$('rptHYear'), btnRptHLoad=$('btnRptHLoad'), tblRptH=$('tblRptH');
 
-  const btnRptILoad=$('btnRptILoad'), btnRptICSV=$('btnRptICSV'), tblRptI=$('tblRptI');
+  const rptIWells=$('rptIWells'), btnRptILoad=$('btnRptILoad'), btnRptICSV=$('btnRptICSV'), tblRptI=$('tblRptI');
 
   let chartQuality=null, chartLevels=null;
-  let wellIndexById = new Map(); // well_id -> {well_code, governorate, district}
+  const wellIndexById = new Map(); // well_id -> meta
 
   document.addEventListener('DOMContentLoaded', init);
 
   async function init(){
     if (!sb) return;
 
-    // Load well list once for multi-selects
+    // Load wells once and populate all multi-selects
     const wells = await fetchWells();
     const options = wells.map(w => `<option value="${w.well_id}">${esc(w.well_code)}${w.well_name? ' - '+esc(w.well_name):''}</option>`).join('');
-    [readingListWells, rptWells].forEach(sel => { if (sel) sel.innerHTML = options; });
+    const multiSelects = [readingListWells, rptAWells, rptBWells, rptCWells, rptDWells, rptEWells, rptFWells, rptGWells, rptHWells, rptIWells];
+    multiSelects.forEach(sel => { if (sel) sel.innerHTML = options; });
+    wells.forEach(w => wellIndexById.set(String(w.well_id), w));
 
-    // Build quick index
-    wells.forEach(w => wellIndexById.set(String(w.well_id), {well_code:w.well_code, governorate:w.governorate, district:w.district}));
-
-    // Defaults
+    // Default dates/months
     const today=new Date(), yyyy=today.getFullYear(), mm=String(today.getMonth()+1).padStart(2,'0');
     if (readingListTo) readingListTo.value = `${yyyy}-${mm}-${String(today.getDate()).padStart(2,'0')}`;
     if (readingListFrom){ const d=new Date(today); d.setMonth(d.getMonth()-5); readingListFrom.value=d.toISOString().slice(0,10); }
     [rptAStartMonth,rptBStartMonth,rptFStartMonth].forEach(el=>{ if(el){ const d=new Date(today); d.setMonth(d.getMonth()-5); el.value=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;}});
     [rptAEndMonth,rptBEndMonth,rptFEndMonth].forEach(el=>{ if(el) el.value=`${yyyy}-${mm}`; });
 
-    // Report picker toggle
-    reportPicker?.addEventListener('change', () => showReport(reportPicker.value));
-    showReport(reportPicker?.value || 'A');
+    // Sub-tabs toggle
+    if (reportsTabs){
+      reportsTabs.addEventListener('click', (e)=>{
+        const btn = e.target.closest('.tab'); if (!btn) return;
+        const key = btn.getAttribute('data-rpt');
+        document.querySelectorAll('#reports .tab').forEach(b => b.classList.toggle('active', b === btn));
+        document.querySelectorAll('#reports .report-block').forEach(div => {
+          div.style.display = (div.getAttribute('data-report') === key) ? '' : 'none';
+        });
+      });
+    }
 
-    // Bind multi-select helpers
-    btnReadingListSelectAll?.addEventListener('click', ()=> selectAll(readingListWells, true));
-    btnReadingListClear?.addEventListener('click', ()=> selectAll(readingListWells, false));
-    btnRptWellsAll?.addEventListener('click', ()=> selectAll(rptWells, true));
-    btnRptWellsClear?.addEventListener('click', ()=> selectAll(rptWells, false));
-
-    // Reading list events
+    // Bind actions
     btnReadingListLoad?.addEventListener('click', loadReadingList);
     btnReadingListCSV?.addEventListener('click', ()=> csvFromTable(tblReadingList,'readings_by_well.csv'));
 
-    // Reports events
     btnRptALoad?.addEventListener('click', loadRptA);
     btnRptACSV?.addEventListener('click', ()=> csvFromTable(tblRptA,'monthly_abstraction_by_well.csv'));
 
@@ -115,22 +128,12 @@
 
     btnRptILoad?.addEventListener('click', loadRptI);
     btnRptICSV?.addEventListener('click', ()=> csvFromTable(tblRptI,'yoy_abstraction.csv'));
+
+    // Default: load all readings immediately for Reading List
+    loadReadingList().catch(()=>{});
   }
 
-  function showReport(key){
-    document.querySelectorAll('.report-block').forEach(div => {
-      div.style.display = div.getAttribute('data-report') === key ? '' : 'none';
-    });
-  }
-
-  function selectAll(selectEl, on){
-    if (!selectEl) return;
-    Array.from(selectEl.options).forEach(o => o.selected = !!on);
-    // Trigger change if someone listens (not required here)
-    const ev = new Event('change'); selectEl.dispatchEvent(ev);
-  }
-
-  // Fetch helpers
+  // Data fetch
   async function fetchWells(){
     const { data, error } = await sb.from('wells')
       .select('well_id,well_code,well_name,governorate,district,owner_service_provider,design_capacity_m3_per_year,permitted_capacity_m3_per_year,current_status')
@@ -139,23 +142,21 @@
     return data||[];
   }
 
-  // 1) Readings list (multi wells)
+  // Reading List (multi-well; default all)
   async function loadReadingList(){
-    const wellIds = getSelectedValues(readingListWells);
+    const ids = getSelVals(readingListWells);
     let q = sb.from('monthly_readings')
       .select('well_id,reading_date,meter_last_m3,meter_current_m3,static_water_level_m,dynamic_water_level_m,pumping_hours,notes,wells!inner(well_code)')
-      .order('well_id',{ascending:true}).order('reading_date',{ascending:true}).limit(20000);
-    if (wellIds.length) q = q.in('well_id', wellIds);
+      .order('well_id',{ascending:true}).order('reading_date',{ascending:true}).limit(50000);
+    if (ids.length) q = q.in('well_id', ids);
     if (readingListFrom?.value) q = q.gte('reading_date', readingListFrom.value);
     if (readingListTo?.value) q = q.lte('reading_date', readingListTo.value);
     const { data, error } = await q;
     if (error) { console.warn('readings list', error.message); return; }
-
-    // Render
     let total=0, count=0; const perWell = {};
     tblReadingList.innerHTML=(data||[]).map(r=>{
       const last=+r.meter_last_m3||0, curr=+r.meter_current_m3||0, diff=curr-last;
-      if (Number.isFinite(diff)) { total+=diff; }
+      if (Number.isFinite(diff)) total+=diff;
       count++;
       const code = r.wells?.well_code || (wellIndexById.get(String(r.well_id))?.well_code || '');
       perWell[code] = (perWell[code]||0) + (Number.isFinite(diff)?diff:0);
@@ -171,29 +172,27 @@
         <td>${esc(r.notes||'')}</td>
       </tr>`;
     }).join('');
-
-    // Summary
     const parts = Object.entries(perWell).sort((a,b)=> b[1]-a[1]).slice(0,5).map(([k,v])=> `${k}: ${fmtNum(v)} m³`);
-    readingListSummary.textContent = `Wells: ${Object.keys(perWell).length||'All'} • Records: ${count} • Total: ${fmtNum(total)} m³${parts.length? ' • Top: ' + parts.join(' | ') : ''}`;
+    readingListSummary.textContent = `Wells: ${Object.keys(perWell).length || 'All'} • Records: ${count} • Total: ${fmtNum(total)} m³${parts.length? ' • Top: ' + parts.join(' | ') : ''}`;
   }
 
-  // A) Monthly Abstraction per Well (compare to capacity)
+  // A) Monthly Abstraction per Well
   async function loadRptA(){
-    const wellIds = getSelectedValues(rptWells);
+    const ids = getSelVals(rptAWells);
     let rows=[];
     try{
       let q = sb.from('v_abstraction_vs_capacity')
         .select('*').order('well_code',{ascending:true}).order('year',{ascending:true}).order('month',{ascending:true}).limit(20000);
-      if (wellIds.length) q = q.in('well_id', wellIds);
+      if (ids.length) q = q.in('well_id', ids);
       const { data, error } = await q;
       if (error) throw error;
       rows = (data||[]).filter(mFilter(rptAStartMonth?.value, rptAEndMonth?.value));
     }catch{
-      // Fallback compute
+      // Fallback compute from monthly_readings
       const { data: mrs } = await sb.from('monthly_readings')
         .select('well_id,reading_date,meter_last_m3,meter_current_m3')
         .order('reading_date',{ascending:true}).limit(50000);
-      const filtered = wellIds.length ? (mrs||[]).filter(r => wellIds.includes(String(r.well_id))) : (mrs||[]);
+      const filtered = ids.length ? (mrs||[]).filter(r => ids.includes(String(r.well_id))) : (mrs||[]);
       const map = new Map();
       filtered.forEach(r=>{
         const d=new Date(r.reading_date), y=d.getFullYear(), m=d.getMonth()+1, k=`${r.well_id}|${y}|${m}`;
@@ -201,9 +200,7 @@
         if (!map.has(k)) map.set(k,{ well_id:String(r.well_id), year:y, month:m, abstraction:0 });
         map.get(k).abstraction += Number.isFinite(diff)?diff:0;
       });
-      rows = Array.from(map.values());
-      // Join well meta
-      rows = rows.map(x=>{
+      rows = Array.from(map.values()).map(x=>{
         const w = wellIndexById.get(String(x.well_id))||{};
         const allowedYear = Number(w.permitted_capacity_m3_per_year)||Number(w.design_capacity_m3_per_year)||0;
         const allowedMo = allowedYear? allowedYear/12 : 0;
@@ -236,14 +233,13 @@
   // B) Totals by Area
   async function loadRptB(){
     const groupBy = rptBGroupBy?.value || 'governorate';
-    const wellIds = getSelectedValues(rptWells);
+    const ids = getSelVals(rptBWells);
     let rows=[];
-    if (wellIds.length){
-      // Compute with filter
+    if (ids.length){
       const { data: joined } = await sb.from('monthly_readings')
         .select(`well_id, meter_last_m3, meter_current_m3, reading_date, wells!inner(${groupBy})`)
         .order('reading_date',{ascending:true}).limit(50000);
-      const filtered = (joined||[]).filter(r => wellIds.includes(String(r.well_id)));
+      const filtered = (joined||[]).filter(r => ids.includes(String(r.well_id)));
       const totals = {};
       filtered.forEach(r=>{
         const ym = ymk(r.reading_date);
@@ -257,7 +253,6 @@
         return { group_key, year_month_key: Number(ym), total_abstraction_m3: val };
       }).filter(mFilter(rptBStartMonth?.value, rptBEndMonth?.value, r=> r.year_month_key));
     } else {
-      // Use view when all wells
       try{
         let q = sb.from('v_total_abstraction_by_area').select('group_key,total_abstraction_m3,year_month_key').eq('group_by', groupBy);
         const { data, error } = await q;
@@ -273,19 +268,16 @@
   // C) Non-operational wells
   async function loadRptC(){
     const days = Number(rptCDays?.value)||45;
-    const wellIds = getSelectedValues(rptWells);
-    let rows=[];
-    // Fallback computation respects wellIds
+    const ids = getSelVals(rptCWells);
     const { data: reads } = await sb.from('monthly_readings')
       .select('well_id, reading_date').order('reading_date',{ascending:false}).limit(50000);
-    const filteredReads = wellIds.length ? (reads||[]).filter(r => wellIds.includes(String(r.well_id))) : (reads||[]);
+    const filteredReads = ids.length ? (reads||[]).filter(r => ids.includes(String(r.well_id))) : (reads||[]);
     const lastMap = new Map();
     filteredReads.forEach(r=> { if(!lastMap.has(r.well_id)) lastMap.set(String(r.well_id), r.reading_date); });
 
-    // Wells universe to consider
-    const allWellIds = wellIds.length ? wellIds : Array.from(wellIndexById.keys());
+    const targetIds = ids.length ? ids : Array.from(wellIndexById.keys());
     const now = new Date();
-    rows = allWellIds.map(id=>{
+    const rows = targetIds.map(id=>{
       const w = wellIndexById.get(String(id)) || {};
       const lastD = lastMap.get(String(id));
       const since = lastD? Math.round((now - new Date(lastD))/(1000*60*60*24)) : null;
@@ -311,11 +303,11 @@
 
   // D) Maintenance logs
   async function loadRptD(){
-    const wellIds = getSelectedValues(rptWells);
+    const ids = getSelVals(rptDWells);
     let q = sb.from('maintenance_visits')
       .select('well_id,visit_date,technician_team,activity,notes,cost,wells!inner(well_code)')
       .order('visit_date',{ascending:false}).limit(10000);
-    if (wellIds.length) q = q.in('well_id', wellIds);
+    if (ids.length) q = q.in('well_id', ids);
     if (rptDFrom?.value) q = q.gte('visit_date', rptDFrom.value);
     if (rptDTo?.value) q = q.lte('visit_date', rptDTo.value);
     const { data, error } = await q; if (error){ console.warn('maintenance', error.message); return; }
@@ -330,15 +322,15 @@
       </tr>`).join('');
   }
 
-  // E) Water quality: parameter + compliance + trend + alerts
+  // E) Water quality
   async function loadRptE(){
-    const wellIds = getSelectedValues(rptWells);
+    const ids = getSelVals(rptEWells);
     const param = rptEParam?.value || 'EC';
     let q = sb.from('water_quality')
       .select('well_id,sample_date,parameter_name,parameter_value,unit,wells!inner(well_code,governorate,district)')
       .eq('parameter_name', param)
       .order('sample_date',{ascending:true}).limit(20000);
-    if (wellIds.length) q = q.in('well_id', wellIds);
+    if (ids.length) q = q.in('well_id', ids);
     if (rptEFrom?.value) q = q.gte('sample_date', rptEFrom.value);
     if (rptETo?.value) q = q.lte('sample_date', rptETo.value);
     const { data, error } = await q; if (error) { console.warn('quality', error.message); return; }
@@ -377,7 +369,6 @@
       };
     });
 
-    // Table
     tblRptE.innerHTML = rows.map(r=>`
       <tr>
         <td>${esc(r.well_code)}</td>
@@ -406,11 +397,11 @@
 
   // F) Over-abstraction
   async function loadRptF(){
-    const wellIds = getSelectedValues(rptWells);
+    const ids = getSelVals(rptFWells);
     let rows=[];
-    if (wellIds.length){
+    if (ids.length){
       try{
-        let { data } = await sb.from('v_abstraction_vs_capacity').select('*').in('well_id', wellIds);
+        let { data } = await sb.from('v_abstraction_vs_capacity').select('*').in('well_id', ids);
         rows = (data||[]).filter(r => Number(r.allowed_m3_per_month)>0 && Number(r.monthly_abstraction_m3)>Number(r.allowed_m3_per_month))
           .map(r=>({
             well_code:r.well_code, year:r.year, month:r.month,
@@ -439,22 +430,18 @@
       </tr>`).join('');
   }
 
-  // G) Water levels trend chart (up to 5 wells plotted)
+  // G) Water levels trend chart
   async function loadRptG(){
-    const wellIds = getSelectedValues(rptWells);
-    if (!wellIds.length) {
-      // If none selected, pick top 3 wells alphabetically to show something
-      const all = Array.from(wellIndexById.keys()).slice(0,3);
-      wellIds.push(...all);
-    }
-    const ids = wellIds.slice(0,5); // limit to 5 datasets
-    const { data, error } = await sb.from('monthly_readings')
+    const ids = getSelVals(rptGWells);
+    const target = (ids.length ? ids : Array.from(wellIndexById.keys())).slice(0,5);
+    let q = sb.from('monthly_readings')
       .select('well_id,reading_date,static_water_level_m,dynamic_water_level_m')
-      .in('well_id', ids).order('reading_date',{ascending:true}).limit(50000);
-    if (error){ console.warn('levels', error.message); return; }
-    // Build datasets by well (static and dynamic per well)
-    const byWell = groupBy(data||[], 'well_id');
+      .in('well_id', target).order('reading_date',{ascending:true}).limit(50000);
+    if (rptGFrom?.value) q = q.gte('reading_date', rptGFrom.value);
+    if (rptGTo?.value) q = q.lte('reading_date', rptGTo.value);
+    const { data, error } = await q; if (error){ console.warn('levels', error.message); return; }
     const labels = Array.from(new Set((data||[]).map(r => String(r.reading_date).slice(0,10)))).sort();
+    const byWell = groupBy(data||[], 'well_id');
     const palette = ['#22d3ee','#8b5cf6','#10b981','#f59e0b','#ef4444'];
     const datasets = [];
     Object.entries(byWell).forEach(([id, arr], i) => {
@@ -470,15 +457,15 @@
     }
   }
 
-  // H) Seasonal (May–Oct vs Nov–Apr) per selected wells
+  // H) Seasonal abstraction
   async function loadRptH(){
-    if (!rptHYear?.value){ notify('Enter a year (e.g., 2025)'); return; }
+    if (!rptHYear?.value) { console.warn('Enter a year'); return; }
     const y = Number(rptHYear.value);
-    const wellIds = getSelectedValues(rptWells);
-    const ids = wellIds.length ? wellIds : Array.from(wellIndexById.keys());
+    const ids = getSelVals(rptHWells);
+    const target = ids.length ? ids : Array.from(wellIndexById.keys());
     const { data, error } = await sb.from('monthly_readings')
       .select('well_id,reading_date,meter_last_m3,meter_current_m3')
-      .in('well_id', ids).gte('reading_date', `${y}-01-01`).lte('reading_date', `${y}-12-31`)
+      .in('well_id', target).gte('reading_date', `${y}-01-01`).lte('reading_date', `${y}-12-31`)
       .order('reading_date',{ascending:true}).limit(100000);
     if (error){ console.warn('seasonal', error.message); return; }
     const perWell = {};
@@ -500,13 +487,13 @@
     tblRptH.innerHTML = rows || '<tr><td colspan="3">No data.</td></tr>';
   }
 
-  // I) Year-to-year change per selected wells
+  // I) Year-to-year change
   async function loadRptI(){
-    const wellIds = getSelectedValues(rptWells);
-    const ids = wellIds.length ? wellIds : Array.from(wellIndexById.keys());
+    const ids = getSelVals(rptIWells);
+    const target = ids.length ? ids : Array.from(wellIndexById.keys());
     const { data, error } = await sb.from('monthly_readings')
       .select('well_id,reading_date,meter_last_m3,meter_current_m3')
-      .in('well_id', ids).order('reading_date',{ascending:true}).limit(200000);
+      .in('well_id', target).order('reading_date',{ascending:true}).limit(200000);
     if (error){ console.warn('yoy', error.message); return; }
     const byWellYear = {};
     (data||[]).forEach(r=>{
@@ -530,36 +517,6 @@
       });
     }).join('');
     tblRptI.innerHTML = rows || '<tr><td colspan="4">No data.</td></tr>';
-  }
-
-  // Utils
-  function groupBy(arr, key){ return (arr||[]).reduce((m,x)=>{ const k=String(x[key]||''); (m[k]=m[k]||[]).push(x); return m; },{}); }
-  function ymk(date){ const d=new Date(date); return d.getFullYear()*100 + (d.getMonth()+1); }
-  function mFilter(start,end,getKey){
-    const s = start ? Number(start.replace('-','')) : null;
-    const e = end ? Number(end.replace('-','')) : null;
-    return (r)=>{
-      const k = getKey ? getKey(r) : (r.year*100+r.month);
-      if (s && k < s) return false;
-      if (e && k > e) return false;
-      return true;
-    };
-  }
-  function notify(msg) {
-    try {
-      const bar = document.createElement('div');
-      bar.textContent = msg;
-      bar.style.position = 'fixed';
-      bar.style.bottom = '12px';
-      bar.style.right = '12px';
-      bar.style.background = '#103451';
-      bar.style.color = '#fff';
-      bar.style.padding = '8px 12px';
-      bar.style.borderRadius = '8px';
-      bar.style.zIndex = 9999;
-      document.body.appendChild(bar);
-      setTimeout(() => bar.remove(), 2400);
-    } catch {}
   }
 
 })();
