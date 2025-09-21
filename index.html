@@ -12,7 +12,8 @@
   <style>
     #map { width:100%; height:62vh; border:1px solid #ccc; border-radius:10px; }
     .hint { color:#7b8a9a; font-size:0.9rem; }
-    select[multiple] { min-height: 140px; }
+    /* Comfortable height for dropdowns if your CSS doesn't already handle it */
+    select { min-height: 36px; }
   </style>
   <!-- Libraries -->
   <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -21,7 +22,7 @@
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script defer src="./config.js"></script>
   <script defer src="./app.js"></script>
-  <!-- Reading List logic -->
+  <!-- NEW: Reading List logic -->
   <script defer src="./reading-list.js"></script>
 </head>
 <body class="theme-ocean">
@@ -366,20 +367,63 @@
     <section id="readingList" class="panel">
       <h2>Readings List</h2>
       <div class="filters">
-        <div class="field" style="flex:1;">
-          <label>Wells (leave empty = all)</label>
-          <select id="rlWells" multiple></select>
+        <div class="field">
+          <label>Governorate</label>
+          <select id="rlGov">
+            <option value="">All Governorates</option>
+            <option>Tubas</option>
+            <option>Tulkarm</option>
+            <option>Nablus</option>
+            <option>Qalqiliya</option>
+            <option>Salfit</option>
+            <option>Ramallah &amp; Al-Bireh</option>
+            <option>Jericho &amp; Al Aghwar</option>
+            <option>Jerusalem</option>
+            <option>Bethlehem</option>
+            <option>Hebron</option>
+          </select>
         </div>
-        <input id="rlFrom" type="date" />
-        <input id="rlTo" type="date" />
+        <div class="field">
+          <label>Well</label>
+          <select id="rlWell">
+            <option value="">All Wells</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Year</label>
+          <select id="rlYear">
+            <option value="">All Years</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Month</label>
+          <select id="rlMonth">
+            <option value="">All Months</option>
+            <option value="01">01 - Jan</option>
+            <option value="02">02 - Feb</option>
+            <option value="03">03 - Mar</option>
+            <option value="04">04 - Apr</option>
+            <option value="05">05 - May</option>
+            <option value="06">06 - Jun</option>
+            <option value="07">07 - Jul</option>
+            <option value="08">08 - Aug</option>
+            <option value="09">09 - Sep</option>
+            <option value="10">10 - Oct</option>
+            <option value="11">11 - Nov</option>
+            <option value="12">12 - Dec</option>
+          </select>
+        </div>
         <button id="btnRLLoad" type="button">Load</button>
         <button id="btnRLCsv" type="button">Export CSV</button>
       </div>
+
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
               <th>Well</th>
+              <th>Governorate</th>
+              <th>District</th>
               <th>Date</th>
               <th>Meter Last (m³)</th>
               <th>Meter Current (m³)</th>
