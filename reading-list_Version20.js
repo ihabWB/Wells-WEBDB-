@@ -1,4 +1,5 @@
-// Readings List tab: lists readings with filters; default loads ALL readings
+// Readings List tab: normal list of readings with optional filters by Year, Month, Well, Governorate.
+// Loads ALL readings by default (newest first).
 (function(){
   'use strict';
 
@@ -8,9 +9,10 @@
     : null;
 
   const $ = (id) => document.getElementById(id);
-  const rlWells = $('rlWells');
-  const rlFrom = $('rlFrom');
-  const rlTo = $('rlTo');
+  const rlGov = $('rlGov');
+  const rlWell = $('rlWell');
+  const rlYear = $('rlYear');
+  const rlMonth = $('rlMonth');
   const btnRLLoad = $('btnRLLoad');
   const btnRLCsv = $('btnRLCsv');
   const tblRL = $('tblRL');
@@ -18,48 +20,69 @@
 
   const esc = (s) => (s ?? '').toString().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const fmtNum = (n) => Number.isFinite(+n) ? (Math.round(+n*100)/100).toLocaleString() : '';
-  const getVals = (sel) => Array.from((sel?.selectedOptions||[])).map(o => o.value).filter(Boolean);
 
   document.addEventListener('DOMContentLoaded', init);
 
   async function init(){
     if (!sb) return;
-    await loadWells();
-    // Optional: prefill last 6 months; leave blank to show ALL
-    // const d=new Date(); const yyyy=d.getFullYear(), mm=String(d.getMonth()+1).padStart(2,'0');
-    // rlTo.value = `${yyyy}-${mm}-${String(d.getDate()).padStart(2,'0')}`;
-    // const f=new Date(d); f.setMonth(f.getMonth()-5); rlFrom.value=f.toISOString().slice(0,10);
+    await populateWells();
+    populateYears();
 
     btnRLLoad?.addEventListener('click', loadReadings);
     btnRLCsv?.addEventListener('click', () => exportTableCSV('readings_list.csv'));
 
-    // Load ALL readings by default
+    // Load all readings by default
     loadReadings().catch(()=>{});
   }
 
-  async function loadWells(){
+  async function populateWells(){
     const { data, error } = await sb
       .from('wells')
       .select('well_id, well_code, well_name')
       .order('well_code', { ascending:true })
       .limit(5000);
     if (error) { console.warn('wells error', error.message); return; }
-    rlWells.innerHTML = (data||[]).map(w =>
+    rlWell.innerHTML = '<option value="">All Wells</option>' + (data||[]).map(w =>
       `<option value="${w.well_id}">${esc(w.well_code)}${w.well_name ? ' - ' + esc(w.well_name) : ''}</option>`
     ).join('');
   }
 
+  function populateYears(){
+    // Simple range: current year down to 2000 (adjust if needed)
+    const nowY = new Date().getFullYear();
+    const startY = 2000;
+    rlYear.innerHTML = '<option value="">All Years</option>' +
+      Array.from({length: (nowY - startY + 1)}, (_,i) => nowY - i)
+        .map(y => `<option value="${y}">${y}</option>`).join('');
+  }
+
+  function monthEnd(y, m){ // m as "01".."12"
+    const last = new Date(y, parseInt(m,10), 0).getDate();
+    return `${y}-${m}-${String(last).padStart(2,'0')}`;
+  }
+
   async function loadReadings(){
     let q = sb.from('monthly_readings')
-      .select('well_id, reading_date, meter_last_m3, meter_current_m3, static_water_level_m, dynamic_water_level_m, pumping_hours, notes, wells!inner(well_code)')
+      .select('well_id, reading_date, meter_last_m3, meter_current_m3, static_water_level_m, dynamic_water_level_m, pumping_hours, notes, wells!inner(well_code, governorate, district)')
+      .order('reading_date', { ascending:false }) // newest first
       .order('well_id', { ascending:true })
-      .order('reading_date', { ascending:true })
       .limit(50000);
 
-    const ids = getVals(rlWells);
-    if (ids.length) q = q.in('well_id', ids);
-    if (rlFrom?.value) q = q.gte('reading_date', rlFrom.value);
-    if (rlTo?.value) q = q.lte('reading_date', rlTo.value);
+    // Filters
+    const gov = rlGov?.value || '';
+    const wellId = rlWell?.value || '';
+    const year = rlYear?.value || '';
+    const month = rlMonth?.value || '';
+
+    if (wellId) q = q.eq('well_id', wellId);
+    if (gov) q = q.eq('wells.governorate', gov);
+
+    // Date range: if year and month: that specific month; if only year: full year
+    if (year && month) {
+      q = q.gte('reading_date', `${year}-${month}-01`).lte('reading_date', monthEnd(year, month));
+    } else if (year) {
+      q = q.gte('reading_date', `${year}-01-01`).lte('reading_date', `${year}-12-31`);
+    }
 
     const { data, error } = await q;
     if (error) { console.warn('readings error', error.message); return; }
@@ -71,10 +94,11 @@
       const diff = curr - last;
       if (Number.isFinite(diff)) total += diff;
       count++;
-      const code = r.wells?.well_code || '';
       return `
         <tr>
-          <td>${esc(code)}</td>
+          <td>${esc(r.wells?.well_code || '')}</td>
+          <td>${esc(r.wells?.governorate || '')}</td>
+          <td>${esc(r.wells?.district || '')}</td>
           <td>${esc(String(r.reading_date).slice(0,10))}</td>
           <td>${fmtNum(r.meter_last_m3)}</td>
           <td>${fmtNum(r.meter_current_m3)}</td>
@@ -87,7 +111,7 @@
       `;
     }).join('');
 
-    rlSummary.textContent = `Records: ${count} • Total abstraction: ${fmtNum(total)} m³`;
+    rlSummary.textContent = `Records: ${count} • Total abstraction: ${fmtNum(total)} m³${year ? ` • Year: ${year}` : ''}${month ? ` • Month: ${month}` : ''}${wellId ? ' • Well filtered' : ''}${gov ? ` • Gov: ${gov}` : ''}`;
   }
 
   function exportTableCSV(filename){
