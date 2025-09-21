@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Wells Database- (PWA)</title>
+  <title>Wells Database---- (PWA)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#0e7490" />
@@ -12,6 +12,14 @@
   <style>
     #map { width:100%; height:62vh; border:1px solid #ccc; border-radius:10px; }
     .hint { color:#7b8a9a; font-size:0.9rem; }
+    /* Batch grid helpers */
+    .inline { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    .table-wrap { overflow:auto; }
+    .badge { display:inline-block; padding:2px 6px; border-radius:6px; font-size:12px; }
+    .badge-ok { background:#10b98122; color:#065f46; border:1px solid #10b98155; }
+    .badge-err { background:#ef444422; color:#7f1d1d; border:1px solid #ef444455; }
+    .row-error { background:#fee2e2; }
+    .mini { width:120px; }
   </style>
   <!-- Libraries -->
   <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -20,8 +28,9 @@
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script defer src="./config.js"></script>
   <script defer src="./app.js"></script>
-  <!-- Readings List logic -->
-  <script defer src="./reading-list.js"></script>
+  <!-- New: Batch readings + Readings List -->
+  <script defer src="./readings-batch.js?v=1"></script>
+  <script defer src="./reading-list.js?v=1"></script>
 </head>
 <body class="theme-ocean">
   <header>
@@ -40,7 +49,7 @@
     <button class="tab" data-tab="service">Service Areas</button>
     <button class="tab" data-tab="list">List Wells</button>
     <button class="tab" data-tab="mapPanel">Map</button>
-    <!-- NEW: Readings List tab -->
+    <!-- Added: Readings List tab -->
     <button class="tab" data-tab="readingList">Readings List</button>
   </nav>
 
@@ -181,52 +190,42 @@
       </form>
     </section>
 
+    <!-- Updated: Monthly Readings as batch-entry grid with manual abstraction override -->
     <section id="readings" class="panel">
-      <h2>Add Monthly Reading</h2>
-      <form id="formReading">
-        <div class="field">
-          <label>Well*</label>
-          <select id="readingWell" name="well_id" required></select>
-        </div>
-        <div class="grid-3">
-          <div class="field">
-            <label>Reading Date*</label>
-            <input name="reading_date" type="date" required />
-          </div>
-          <div class="field">
-            <label>Meter Last (m³)*</label>
-            <input name="meter_last_m3" type="number" step="any" required />
-          </div>
-          <div class="field">
-            <label>Meter Current (m³)*</label>
-            <input name="meter_current_m3" type="number" step="any" required />
-          </div>
-        </div>
-        <div class="grid-3">
-          <div class="field">
-            <label>Static Water Level (m)</label>
-            <input name="static_water_level_m" type="number" step="any" />
-          </div>
-          <div class="field">
-            <label>Dynamic Water Level (m)</label>
-            <input name="dynamic_water_level_m" type="number" step="any" />
-          </div>
-          <div class="field">
-            <label>Pumping Hours</label>
-            <input name="pumping_hours" type="number" step="any" />
-          </div>
-        </div>
-        <div class="field">
-          <label>Notes</label>
-          <textarea name="notes"></textarea>
-        </div>
-        <div class="field">
-          <label>Monthly Abstraction (auto)</label>
-          <input id="computedAbstraction" disabled />
-        </div>
-        <button type="submit">Save Reading</button>
-        <div class="msg" id="msgReading"></div>
-      </form>
+      <h2>Monthly Readings (Batch entry)</h2>
+
+      <div class="inline" style="margin-bottom:8px;">
+        <label>Default Well</label>
+        <select id="rbDefaultWell" class="mini"></select>
+        <button id="rbAddRow" type="button">Add Row</button>
+        <button id="rbDuplicateLast" type="button">Duplicate Last</button>
+        <button id="rbClear" type="button">Clear</button>
+        <button id="rbSaveAll" class="btn" type="button">Save All</button>
+        <span id="rbStatus" class="hint"></span>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Well</th>
+              <th>Date</th>
+              <th>Meter Last (m³)</th>
+              <th>Meter Current (m³)</th>
+              <th>Abstraction (m³)</th>
+              <th>Static WL (m)</th>
+              <th>Dynamic WL (m)</th>
+              <th>Pumping Hrs</th>
+              <th>Notes</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="rbTbody"></tbody>
+        </table>
+      </div>
+      <p class="hint">Abstraction auto-calculates from meters until you type a value (manual override). Save uses upsert on (well, year, month).</p>
     </section>
 
     <section id="quality" class="panel">
@@ -361,7 +360,7 @@
       <p class="hint">Coordinates are stored as EPSG:28191 and converted to WGS84 for display.</p>
     </section>
 
-    <!-- NEW: Readings List (same style as Wells List) -->
+    <!-- New: Readings List (same style as Wells List) -->
     <section id="readingList" class="panel">
       <h2>Readings List</h2>
       <div class="filters">
