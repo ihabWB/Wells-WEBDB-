@@ -1,8 +1,10 @@
-// Batch Grid for Monthly Readings (Editable + Trigger mode)
-// Resilient: wires toggles and shows the grid regardless of Supabase status.
+// Batch Grid for Monthly Readings (Single-well mode)
+// - Choose one Well at the top; grid rows are months/dates for that well.
+// - Upserts on (well_id, year, month) with Editable+Trigger for abstraction.
+// - "Duplicate Last" auto-advances the date to the next month.
 (function(){
   'use strict';
-  console.log('[batch] script loaded v3');
+  console.log('[batch] single-well v4 loaded');
 
   function getSb(){
     if (window.$sb) return window.$sb;
@@ -19,14 +21,14 @@
 
   const $ = (id) => document.getElementById(id);
 
-  // Toggle elements
+  // Toggle elements (Single vs Batch)
   const btnModeSingle = $('btnModeSingle');
   const btnModeBatch  = $('btnModeBatch');
   const readingsSingle = $('readingsSingle');
   const readingsBatch  = $('readingsBatch');
 
-  // Batch elements
-  const rbDefaultWell = $('rbDefaultWell');
+  // Batch elements (single-well)
+  const rbWell = $('rbWell');
   const rbAddRow = $('rbAddRow');
   const rbDuplicateLast = $('rbDuplicateLast');
   const rbClear = $('rbClear');
@@ -46,46 +48,49 @@
         readingsBatch.style.display = 'none';
         btnModeSingle.classList.add('active');
         btnModeBatch.classList.remove('active');
-        console.log('[batch] switched to Single Entry');
       });
       btnModeBatch.addEventListener('click', () => {
         readingsSingle.style.display = 'none';
         readingsBatch.style.display = '';
         btnModeBatch.classList.add('active');
         btnModeSingle.classList.remove('active');
-        console.log('[batch] switched to Batch Entry');
       });
-      console.log('[batch] toggles wired');
     } else {
-      console.warn('[batch] Missing toggle elements. Need ids: btnModeSingle, btnModeBatch, readingsSingle, readingsBatch');
+      console.warn('[batch] Missing toggle containers/ids.');
     }
   })();
 
-  // Bootstrap grid UI immediately (so you can see it even if Supabase isn’t ready)
+  // Bootstrap grid UI (visible even if Supabase not ready)
   bootstrapGrid();
 
   async function bootstrapGrid(){
-    // Buttons
     rbAddRow?.addEventListener('click', ()=> addRow());
-    rbDuplicateLast?.addEventListener('click', duplicateLast);
+    rbDuplicateLast?.addEventListener('click', addNextMonthFromLast);
     rbClear?.addEventListener('click', ()=> { rows = []; renderBatch(); setBatchStatus('Cleared.'); });
     rbSaveAll?.addEventListener('click', saveAllBatch);
+    rbWell?.addEventListener('change', ()=>{
+      // Ensure current rows use the newly selected well (no per-row well in UI)
+      rows.forEach(r => r.well_id = rbWell.value || '');
+      renderBatch();
+    });
 
-    // Show first row
-    addRow();
+    addRow(); // show first row
 
-    // Try to ensure Supabase later (don’t block the UI)
     await ensureSupabase();
     if (sb) {
       await loadWells();
+      // If well not chosen yet, default to first and sync rows
+      if (rbWell && !rbWell.value && wells[0]) {
+        rbWell.value = wells[0].well_id;
+        rows.forEach(r => r.well_id = rbWell.value);
+      }
       renderBatch();
       document.addEventListener('wells:changed', async ()=>{
         await loadWells();
         renderBatch();
       });
-      console.log('[batch] bootstrap complete with wells:', wells.length);
     } else {
-      console.warn('[batch] Supabase not initialized yet (APP_CONFIG or supabase-js missing?). Grid visible without wells.');
+      console.warn('[batch] Supabase not initialized yet. Grid visible; wells empty.');
     }
   }
 
@@ -104,26 +109,28 @@
       if (error) throw error;
       wells.length = 0;
       (data||[]).forEach(w => wells.push(w));
-      if (rbDefaultWell) {
-        rbDefaultWell.innerHTML = wells.map(w => `<option value="${w.well_id}">${esc(w.well_code)}</option>`).join('');
+      if (rbWell) {
+        const current = rbWell.value;
+        rbWell.innerHTML = wells.map(w => `<option value="${w.well_id}">${esc(w.well_code)}</option>`).join('');
+        if (current && wells.some(w=>w.well_id===current)) rbWell.value = current;
       }
       console.log('[batch] wells loaded:', wells.length);
     }catch(e){
-      setBatchStatus('Failed to load wells list.', true);
+      setBatchStatus('Failed to load wells.', true);
       console.error('[batch] loadWells error:', e);
     }
   }
 
   function addRow(seed){
-    const defWell = rbDefaultWell?.value || (wells[0]?.well_id || '');
+    const well = rbWell?.value || '';
     const today = new Date().toISOString().slice(0,10);
     rows.push({
       rid: seq++,
-      well_id: seed?.well_id ?? defWell,
+      well_id: well,
       date: seed?.date ?? today,
       last: seed?.last ?? '',
       curr: seed?.curr ?? '',
-      abs: seed?.abs ?? '',
+      abs: seed?.abs ?? '',       // if '', save NULL so trigger fills auto
       manualAbs: seed?.manualAbs ?? false,
       static: seed?.static ?? '',
       dynamic: seed?.dynamic ?? '',
@@ -134,12 +141,12 @@
     renderBatch();
   }
 
-  function duplicateLast(){
+  function addNextMonthFromLast(){
     const last = rows[rows.length - 1];
     if (!last) { addRow(); return; }
+    const nextDate = addOneMonthISO(last.date);
     addRow({
-      well_id: last.well_id,
-      date: last.date,
+      date: nextDate,
       last: last.curr || last.last,
       curr: '',
       abs: '',
@@ -153,13 +160,11 @@
 
   function renderBatch(){
     if (!rbTbody) { console.warn('[batch] rbTbody not found'); return; }
-    const wOpts = wells.map(w => `<option value="${w.well_id}">${esc(w.well_code)}</option>`).join('');
     rbTbody.innerHTML = rows.map((r, idx)=>{
       const auto = calcAuto(r.last, r.curr);
       const shown = r.manualAbs ? r.abs : (r.abs !== '' ? r.abs : (auto ?? ''));
       return `<tr class="${r.err?'row-error':''}" data-rid="${r.rid}">
         <td>${idx+1}</td>
-        <td><select class="inp well">${wOpts.replace(\`value=\"${r.well_id}\"\`, \`value=\"${r.well_id}\" selected\`)}</select></td>
         <td><input type="date" class="inp date" value="${esc(r.date||'')}"/></td>
         <td><input type="number" step="any" class="inp last" value="${esc(r.last)}"/></td>
         <td><input type="number" step="any" class="inp curr" value="${esc(r.curr)}"/></td>
@@ -180,7 +185,6 @@
       const rid = Number(tr.getAttribute('data-rid'));
       const row = rows.find(x=>x.rid===rid); if (!row) return;
 
-      tr.querySelector('.well')?.addEventListener('change', e => { row.well_id = e.target.value; validateRow(row); updateRowView(tr, row); });
       tr.querySelector('.date')?.addEventListener('change', e => { row.date = e.target.value; validateRow(row); updateRowView(tr, row); });
       tr.querySelector('.last')?.addEventListener('input', e => { row.last = e.target.value; if(!row.manualAbs) row.abs=''; validateRow(row); updateRowView(tr, row); });
       tr.querySelector('.curr')?.addEventListener('input', e => { row.curr = e.target.value; if(!row.manualAbs) row.abs=''; validateRow(row); updateRowView(tr, row); });
@@ -197,7 +201,7 @@
 
   function validateRow(r){
     r.err = '';
-    if (!r.well_id) { r.err='Well required'; return; }
+    if (!rbWell || !rbWell.value) { r.err='Select a well above'; return; }
     if (!r.date) { r.err='Date required'; return; }
     const lOk = r.last==='' || Number.isFinite(Number(r.last));
     const cOk = r.curr==='' || Number.isFinite(Number(r.curr));
@@ -208,7 +212,7 @@
 
   function updateRowView(tr, row){
     tr.classList.toggle('row-error', !!row.err);
-    const statusTd = tr.children[10];
+    const statusTd = tr.children[9]; // status column index after removing 'Well'
     if (statusTd) statusTd.innerHTML = row.err ? `<span class="badge badge-err">${esc(row.err)}</span>` : `<span class="badge badge-ok">OK</span>`;
     const absEl = tr.querySelector('.abs');
     if (absEl && !row.manualAbs) absEl.placeholder = (calcAuto(row.last,row.curr) ?? '').toString();
@@ -234,15 +238,28 @@
   }
   function esc(s){ return (s ?? '').toString().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
+  function addOneMonthISO(iso){
+    if (!iso) return new Date().toISOString().slice(0,10);
+    const d = new Date(iso + 'T00:00:00'); // safe parse
+    const year = d.getUTCFullYear();
+    const month = d.getUTCMonth(); // 0-11
+    const day = Math.min(d.getUTCDate(), 28); // keep safe day to avoid overflow
+    const next = new Date(Date.UTC(year, month + 1, day));
+    return next.toISOString().slice(0,10);
+  }
+
   async function saveAllBatch(){
     if (!sb) { setBatchStatus('Supabase not configured.', true); return; }
+    if (!rbWell || !rbWell.value) { setBatchStatus('Select a well.', true); return; }
+
     setBatchStatus('Saving…');
     rows.forEach(validateRow);
     const bad = rows.filter(r=>r.err);
     if (bad.length){ setBatchStatus(`Fix ${bad.length} row(s).`, true); renderBatch(); return; }
 
+    const well_id = rbWell.value;
     const payload = rows.map(r => ({
-      well_id: r.well_id,
+      well_id,
       reading_date: r.date,
       meter_last_m3: valNumOrNull(r.last),
       meter_current_m3: valNumOrNull(r.curr),
