@@ -6,8 +6,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#0e7490" />
+  <!-- Styles -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="./styles.css" />
+  <link rel="stylesheet" href="css/batch.css" />
   <!-- Map-specific minimal styles -->
   <style>
     #map { width:100%; height:62vh; border:1px solid #ccc; border-radius:10px; }
@@ -16,14 +18,11 @@
   <!-- Libraries -->
   <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/proj4@2.10.0/dist/proj4.js"></script>
-  <!-- App scripts -->
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- App scripts -->
   <script defer src="./config.js"></script>
   <script defer src="./app.js"></script>
-  <!-- Ensure these are in your <head> or before </body> -->
-<link rel="stylesheet" href="css/batch.css">
-<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script defer src="js/readings-batch.js"></script>
+  <script defer src="js/readings-batch.js"></script>
 </head>
 <body class="theme-ocean">
   <header>
@@ -182,97 +181,100 @@
     </section>
 
     <section id="readings" class="panel">
-      <h2>Add Monthly Reading</h2>
-      <form id="formReading">
-        <div class="field">
-          <label>Well*</label>
-          <select id="readingWell" name="well_id" required></select>
-        </div>
-        <div class="grid-3">
-          <div class="field">
-            <label>Reading Date*</label>
-            <input name="reading_date" type="date" required />
-          </div>
-          <div class="field">
-            <label>Meter Last (m³)*</label>
-            <input name="meter_last_m3" type="number" step="any" required />
-          </div>
-          <div class="field">
-            <label>Meter Current (m³)*</label>
-            <input name="meter_current_m3" type="number" step="any" required />
-          </div>
-        </div>
-        <div class="grid-3">
-          <div class="field">
-            <label>Static Water Level (m)</label>
-            <input name="static_water_level_m" type="number" step="any" />
-          </div>
-          <div class="field">
-            <label>Dynamic Water Level (m)</label>
-            <input name="dynamic_water_level_m" type="number" step="any" />
-          </div>
-          <div class="field">
-            <label>Pumping Hours</label>
-            <input name="pumping_hours" type="number" step="any" />
-          </div>
-        </div>
-        <div class="field">
-          <label>Notes</label>
-          <textarea name="notes"></textarea>
-        </div>
-        <div class="field">
-          <label>Monthly Abstraction (auto)</label>
-          <input id="computedAbstraction" disabled />
-        </div>
-        <button type="submit">Save Reading</button>
-        <div class="msg" id="msgReading"></div>
-        <div class="inline mode-switch" style="margin-bottom:10px;">
-  <button id="btnModeSingle" type="button" class="tablike active">Single Entry</button>
-  <button id="btnModeBatch" type="button" class="tablike">Batch Entry</button>
-</div>
+      <h2>Monthly Readings</h2>
 
-<!-- Keep your existing Single Entry form in a container with id="readingsSingle" -->
-<div id="readingsSingle"><!-- your existing single-entry form goes here --></div>
+      <!-- Single | Batch toggle -->
+      <div class="inline mode-switch" style="margin-bottom:10px;">
+        <button id="btnModeSingle" type="button" class="tablike active">Single Entry</button>
+        <button id="btnModeBatch" type="button" class="tablike">Batch Entry</button>
+      </div>
 
-<!-- Add this Batch Entry container -->
-<div id="readingsBatch" style="display:none;">
-  <div class="inline" style="margin-bottom:8px;">
-    <label>Default Well</label>
-    <select id="rbDefaultWell" class="mini"></select>
-    <button id="rbAddRow" type="button">Add Row</button>
-    <button id="rbDuplicateLast" type="button">Duplicate Last</button>
-    <button id="rbClear" type="button">Clear</button>
-    <button id="rbSaveAll" class="btn" type="button">Save All</button>
-    <span id="rbStatus" class="hint"></span>
-  </div>
+      <!-- SINGLE ENTRY (your original form moved inside this container) -->
+      <div id="readingsSingle">
+        <form id="formReading">
+          <div class="field">
+            <label>Well*</label>
+            <select id="readingWell" name="well_id" required></select>
+          </div>
+          <div class="grid-3">
+            <div class="field">
+              <label>Reading Date*</label>
+              <input name="reading_date" type="date" required />
+            </div>
+            <div class="field">
+              <label>Meter Last (m³)*</label>
+              <input name="meter_last_m3" type="number" step="any" required />
+            </div>
+            <div class="field">
+              <label>Meter Current (m³)*</label>
+              <input name="meter_current_m3" type="number" step="any" required />
+            </div>
+          </div>
+          <div class="grid-3">
+            <div class="field">
+              <label>Static Water Level (m)</label>
+              <input name="static_water_level_m" type="number" step="any" />
+            </div>
+            <div class="field">
+              <label>Dynamic Water Level (m)</label>
+              <input name="dynamic_water_level_m" type="number" step="any" />
+            </div>
+            <div class="field">
+              <label>Pumping Hours</label>
+              <input name="pumping_hours" type="number" step="any" />
+            </div>
+          </div>
+          <div class="field">
+            <label>Notes</label>
+            <textarea name="notes"></textarea>
+          </div>
+          <div class="field">
+            <label>Monthly Abstraction (auto)</label>
+            <input id="computedAbstraction" disabled />
+          </div>
+          <button type="submit">Save Reading</button>
+          <div class="msg" id="msgReading"></div>
+        </form>
+      </div>
 
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Well</th>
-          <th>Date</th>
-          <th>Meter Last (m³)</th>
-          <th>Meter Current (m³)</th>
-          <th>Abstraction (m³)</th>
-          <th>Static WL (m)</th>
-          <th>Dynamic WL (m)</th>
-          <th>Pumping Hrs</th>
-          <th>Notes</th>
-          <th>Status</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody id="rbTbody"></tbody>
-    </table>
-  </div>
-  <p class="hint">
-    Abstraction auto-calculates from meters until you type a value (manual override).
-    Save uses upsert on (well, year, month).
-  </p>
-</div>
-      </form>
+      <!-- BATCH ENTRY (separate from the single form) -->
+      <div id="readingsBatch" style="display:none;">
+        <div class="inline" style="margin-bottom:8px;">
+          <label>Default Well</label>
+          <select id="rbDefaultWell" class="mini"></select>
+          <button id="rbAddRow" type="button">Add Row</button>
+          <button id="rbDuplicateLast" type="button">Duplicate Last</button>
+          <button id="rbClear" type="button">Clear</button>
+          <button id="rbSaveAll" class="btn" type="button">Save All</button>
+          <span id="rbStatus" class="hint"></span>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Well</th>
+                <th>Date</th>
+                <th>Meter Last (m³)</th>
+                <th>Meter Current (m³)</th>
+                <th>Abstraction (m³)</th>
+                <th>Static WL (m)</th>
+                <th>Dynamic WL (m)</th>
+                <th>Pumping Hrs</th>
+                <th>Notes</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="rbTbody"></tbody>
+          </table>
+        </div>
+        <p class="hint">
+          Abstraction auto-calculates from meters until you type a value (manual override).
+          Save uses upsert on (well, year, month).
+        </p>
+      </div>
     </section>
 
     <section id="quality" class="panel">
@@ -409,7 +411,7 @@
   </main>
 
   <footer>
-    <small>Wells PWA -JWC TEAM• Offline capable •Supabase (PostgreSQL)</small>
+    <small>Wells PWA -JWC TEAM • Offline capable • Supabase (PostgreSQL)</small>
   </footer>
 </body>
 </html>
