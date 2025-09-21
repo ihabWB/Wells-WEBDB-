@@ -222,6 +222,52 @@
         </div>
         <button type="submit">Save Reading</button>
         <div class="msg" id="msgReading"></div>
+        <div class="inline mode-switch" style="margin-bottom:10px;">
+  <button id="btnModeSingle" type="button" class="tablike active">Single Entry</button>
+  <button id="btnModeBatch" type="button" class="tablike">Batch Entry</button>
+</div>
+
+<!-- Keep your existing Single Entry form in a container with id="readingsSingle" -->
+<div id="readingsSingle"><!-- your existing single-entry form goes here --></div>
+
+<!-- Add this Batch Entry container -->
+<div id="readingsBatch" style="display:none;">
+  <div class="inline" style="margin-bottom:8px;">
+    <label>Default Well</label>
+    <select id="rbDefaultWell" class="mini"></select>
+    <button id="rbAddRow" type="button">Add Row</button>
+    <button id="rbDuplicateLast" type="button">Duplicate Last</button>
+    <button id="rbClear" type="button">Clear</button>
+    <button id="rbSaveAll" class="btn" type="button">Save All</button>
+    <span id="rbStatus" class="hint"></span>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Well</th>
+          <th>Date</th>
+          <th>Meter Last (m³)</th>
+          <th>Meter Current (m³)</th>
+          <th>Abstraction (m³)</th>
+          <th>Static WL (m)</th>
+          <th>Dynamic WL (m)</th>
+          <th>Pumping Hrs</th>
+          <th>Notes</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="rbTbody"></tbody>
+    </table>
+  </div>
+  <p class="hint">
+    Abstraction auto-calculates from meters until you type a value (manual override).
+    Save uses upsert on (well, year, month).
+  </p>
+</div>
       </form>
     </section>
 
