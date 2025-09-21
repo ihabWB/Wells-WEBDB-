@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Wells --Database-- (PWA)</title>
+  <title>Wells Database- (PWA)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#0e7490" />
@@ -12,8 +12,6 @@
   <style>
     #map { width:100%; height:62vh; border:1px solid #ccc; border-radius:10px; }
     .hint { color:#7b8a9a; font-size:0.9rem; }
-    /* Comfortable height for dropdowns if your CSS doesn't already handle it */
-    select { min-height: 36px; }
   </style>
   <!-- Libraries -->
   <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -22,7 +20,7 @@
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script defer src="./config.js"></script>
   <script defer src="./app.js"></script>
-  <!-- NEW: Reading List logic -->
+  <!-- Readings List logic -->
   <script defer src="./reading-list.js"></script>
 </head>
 <body class="theme-ocean">
@@ -42,7 +40,7 @@
     <button class="tab" data-tab="service">Service Areas</button>
     <button class="tab" data-tab="list">List Wells</button>
     <button class="tab" data-tab="mapPanel">Map</button>
-    <!-- NEW tab -->
+    <!-- NEW: Readings List tab -->
     <button class="tab" data-tab="readingList">Readings List</button>
   </nav>
 
@@ -363,81 +361,32 @@
       <p class="hint">Coordinates are stored as EPSG:28191 and converted to WGS84 for display.</p>
     </section>
 
-    <!-- NEW: Readings List (default shows ALL readings) -->
+    <!-- NEW: Readings List (same style as Wells List) -->
     <section id="readingList" class="panel">
       <h2>Readings List</h2>
       <div class="filters">
-        <div class="field">
-          <label>Governorate</label>
-          <select id="rlGov">
-            <option value="">All Governorates</option>
-            <option>Tubas</option>
-            <option>Tulkarm</option>
-            <option>Nablus</option>
-            <option>Qalqiliya</option>
-            <option>Salfit</option>
-            <option>Ramallah &amp; Al-Bireh</option>
-            <option>Jericho &amp; Al Aghwar</option>
-            <option>Jerusalem</option>
-            <option>Bethlehem</option>
-            <option>Hebron</option>
-          </select>
-        </div>
-        <div class="field">
-          <label>Well</label>
-          <select id="rlWell">
-            <option value="">All Wells</option>
-          </select>
-        </div>
-        <div class="field">
-          <label>Year</label>
-          <select id="rlYear">
-            <option value="">All Years</option>
-          </select>
-        </div>
-        <div class="field">
-          <label>Month</label>
-          <select id="rlMonth">
-            <option value="">All Months</option>
-            <option value="01">01 - Jan</option>
-            <option value="02">02 - Feb</option>
-            <option value="03">03 - Mar</option>
-            <option value="04">04 - Apr</option>
-            <option value="05">05 - May</option>
-            <option value="06">06 - Jun</option>
-            <option value="07">07 - Jul</option>
-            <option value="08">08 - Aug</option>
-            <option value="09">09 - Sep</option>
-            <option value="10">10 - Oct</option>
-            <option value="11">11 - Nov</option>
-            <option value="12">12 - Dec</option>
-          </select>
-        </div>
-        <button id="btnRLLoad" type="button">Load</button>
-        <button id="btnRLCsv" type="button">Export CSV</button>
+        <input id="rlFilterText" placeholder="Search by well code, governorate, district, date, notes" />
+        <button id="btnRLRefresh">Refresh</button>
       </div>
-
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Well</th>
-              <th>Governorate</th>
-              <th>District</th>
-              <th>Date</th>
-              <th>Meter Last (m³)</th>
-              <th>Meter Current (m³)</th>
-              <th>Abstraction (m³)</th>
-              <th>Static WL (m)</th>
-              <th>Dynamic WL (m)</th>
-              <th>Pumping Hrs</th>
-              <th>Notes</th>
-            </tr>
-          </thead>
-          <tbody id="tblRL"></tbody>
-        </table>
-      </div>
-      <p class="hint" id="rlSummary"></p>
+      <table>
+        <thead>
+          <tr>
+            <th>Well</th>
+            <th>Governorate</th>
+            <th>District</th>
+            <th>Date</th>
+            <th>Meter Last (m³)</th>
+            <th>Meter Current (m³)</th>
+            <th>Abstraction (m³)</th>
+            <th>Static WL (m)</th>
+            <th>Dynamic WL (m)</th>
+            <th>Pumping Hrs</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody id="tblReadings"></tbody>
+      </table>
+      <p class="hint" id="rlStatus"></p>
     </section>
   </main>
 
