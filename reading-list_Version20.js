@@ -1,6 +1,8 @@
-// Readings List: normal list with optional filters by Year, Month, Well, Governorate.
-// Directly reads from public.monthly_readings. Uses wells map for labels and governorate filter.
-// Loads ALL readings by default (newest first).
+// Robust Readings List from public.monthly_readings with optional filters.
+// - Initializes reliably (handles DOMContentLoaded timing).
+// - Queries monthly_readings directly (select('*')), newest first.
+// - Filters: Governorate (client), Well, Year, Month.
+// - Clear errors in UI + console sample logging.
 (function () {
   'use strict';
 
@@ -20,30 +22,32 @@
   const tblRL = $('tblRL');
   const rlSummary = $('rlSummary');
 
-  // Utils
+  // Helpers
   const esc = (s) => (s ?? '').toString().replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const fmtNum = (n) => Number.isFinite(+n) ? (Math.round(+n*100)/100).toLocaleString() : '';
+  const setSummary = (text, isError=false) => { if (rlSummary){ rlSummary.textContent = text; rlSummary.style.color = isError ? '#ef4444' : ''; } };
 
-  // In-memory wells map: well_id -> {well_code, governorate, district}
+  // well_id -> { well_code, governorate, district }
   const wellMap = new Map();
 
-  document.addEventListener('DOMContentLoaded', init);
+  // Ensure init runs even if DOMContentLoaded already happened
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init().catch(err => setSummary(`Init error: ${err.message}`, true));
+  }
 
   async function init(){
-    if (!sb) return;
+    if (!sb) { setSummary('Supabase client not initialized (check config.js).', true); return; }
 
-    // Build wells list and map (used for labels and governorate filtering)
     await loadWells();
-
-    // Populate years dropdown
     populateYears();
 
-    // Wire up actions
-    btnRLLoad?.addEventListener('click', loadReadings);
+    btnRLLoad?.addEventListener('click', () => loadReadings().catch(err => setSummary(`Load error: ${err.message}`, true)));
     btnRLCsv?.addEventListener('click', () => exportTableCSV('readings_list.csv'));
 
     // Load ALL readings by default
-    loadReadings().catch(err => setSummary(`Error: ${err.message}`, true));
+    await loadReadings();
   }
 
   async function loadWells(){
@@ -67,8 +71,7 @@
         });
       });
     } catch (e) {
-      console.warn('wells load error:', e.message);
-      // Keep UI usable even if wells fail; readings will still render (with blank labels)
+      console.warn('wells load error:', e);
       rlWell.innerHTML = '<option value="">All Wells</option>';
     }
   }
@@ -94,14 +97,13 @@
     const year = rlYear?.value || '';
     const month = rlMonth?.value || '';
 
-    // Base query: direct from monthly_readings (no joins)
+    // Build query to monthly_readings with select('*') to avoid column mismatch
     let q = sb.from('monthly_readings')
-      .select('well_id, reading_date, meter_last_m3, meter_current_m3, static_water_level_m, dynamic_water_level_m, pumping_hours, notes')
+      .select('*')
       .order('reading_date', { ascending:false }) // newest first
       .order('well_id', { ascending:true })
-      .limit(50000);
+      .limit(10000); // adjust if needed
 
-    // Apply filters that the table can handle
     if (wellId) q = q.eq('well_id', wellId);
     if (year && month) {
       q = q.gte('reading_date', `${year}-${month}-01`).lte('reading_date', monthEnd(year, month));
@@ -110,18 +112,22 @@
     }
 
     const { data, error } = await q;
+
     if (error) {
+      console.error('monthly_readings query error:', error);
       setSummary(`Error loading readings: ${error.message}`, true);
       tblRL.innerHTML = '';
       return;
     }
 
-    // Optional governorate filter is applied client-side via the wells map
+    // Client-side governorate filter (via wells map)
     const rows = (data||[]).filter(r => {
       if (!gov) return true;
       const meta = wellMap.get(String(r.well_id));
       return (meta?.governorate || '') === gov;
     });
+
+    console.log('monthly_readings sample:', rows.slice(0,5)); // Inspect in console
 
     // Render
     let total = 0, count = 0;
@@ -149,21 +155,12 @@
       `;
     }).join('');
 
-    const infoBits = [
-      rows.length ? '' : 'No rows',
-      year ? `Year: ${year}` : '',
-      month ? `Month: ${month}` : '',
-      wellId ? 'Well: selected' : '',
-      gov ? `Gov: ${gov}` : ''
-    ].filter(Boolean).join(' • ');
+    if (!rows.length) {
+      setSummary('No readings found for the selected filters.');
+      return;
+    }
 
-    setSummary(`Records: ${count} • Total abstraction: ${fmtNum(total)} m³${infoBits ? ' • ' + infoBits : ''}`);
-  }
-
-  function setSummary(text, isError = false){
-    if (!rlSummary) return;
-    rlSummary.textContent = text;
-    rlSummary.style.color = isError ? '#ef4444' : '';
+    setSummary(`Records: ${count} • Total abstraction: ${fmtNum(total)} m³${year ? ` • Year: ${year}` : ''}${month ? ` • Month: ${month}` : ''}${wellId ? ' • Well filtered' : ''}${gov ? ` • Gov: ${gov}` : ''}`);
   }
 
   function exportTableCSV(filename){
