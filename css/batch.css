@@ -1,4 +1,11 @@
-/* Minimal styles for the batch grid. Adjust to match your theme. */
+/* Accent theme for Batch UI */
+:root {
+  --accent: #0e7490;          /* Change this to your preferred color */
+  --accent-rgb: 14,116,144;   /* RGB of --accent for rgba() uses */
+  --accent-contrast: #ffffff; /* Text on active button */
+}
+
+/* Minimal styles for the batch grid */
 .table-wrap { overflow:auto; border:1px solid #e2e8f0; border-radius:10px; background:#fff; }
 table { width:100%; border-collapse: collapse; }
 th, td { padding:8px 10px; border-bottom:1px solid #e2e8f0; font-size: 14px; }
@@ -9,6 +16,54 @@ thead th { position: sticky; top:0; background:#f1f5f9; z-index:1; }
 .badge-err { background:#ef444422; color:#7f1d1d; border:1px solid #ef444455; }
 .row-error { background:#fee2e2; }
 .inline { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin: 6px 0; }
-.mini { width:140px; }
-.tablike { border:1px solid #e2e8f0; background:#f8fafc; padding:6px 10px; border-radius:6px; cursor:pointer; }
-.tablike.active { background:#e2e8f0; }
+.mini { width:160px; }
+
+/* Mode switch buttons (Single / Batch) — high visibility */
+.mode-switch { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:12px 0; }
+.tablike {
+  appearance: none;
+  border: 2px solid var(--accent);
+  background: #ffffff;
+  color: var(--accent);
+  padding: 10px 16px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.98rem;
+  letter-spacing: 0.2px;
+  cursor: pointer;
+  box-shadow: 0 1px 0 rgba(0,0,0,.02);
+  transition: background .2s ease, color .2s ease, border-color .2s ease, box-shadow .2s ease, transform .02s ease;
+}
+.tablike:hover {
+  background: rgba(var(--accent-rgb), .08);
+}
+.tablike:active {
+  transform: translateY(1px);
+}
+.tablike.active {
+  background: var(--accent);
+  color: var(--accent-contrast);
+  border-color: var(--accent);
+  box-shadow:
+    0 2px 10px rgba(var(--accent-rgb), .28),
+    inset 0 0 0 1px rgba(255,255,255,.12);
+}
+.tablike:focus-visible {
+  outline: 3px solid rgba(var(--accent-rgb), .35);
+  outline-offset: 2px;
+}
+
+@media (max-width: 560px) {
+  .tablike { font-size: 0.95rem; padding: 10px 16px; }
+}
+
+/* Optional: subtle spacing for the Save All button group */
+#rbSaveAll.btn {
+  background: var(--accent);
+  color: var(--accent-contrast);
+  border: 2px solid var(--accent);
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-weight: 700;
+}
+#rbSaveAll.btn:hover { filter: brightness(1.05); }
