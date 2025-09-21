@@ -1,10 +1,9 @@
 // Batch Grid for Monthly Readings (Editable + Trigger mode)
-// - Renders UI immediately and wires toggles, even if Supabase isn't ready yet
-// - If Supabase is available, loads wells and enables Save All upserts on (well_id, year, month)
+// Resilient: wires toggles and shows the grid regardless of Supabase status.
 (function(){
   'use strict';
+  console.log('[batch] script loaded v3');
 
-  // Try to create/reuse Supabase client
   function getSb(){
     if (window.$sb) return window.$sb;
     if (window.APP_CONFIG && window.supabase) {
@@ -20,13 +19,13 @@
 
   const $ = (id) => document.getElementById(id);
 
-  // Elements for mode toggle
+  // Toggle elements
   const btnModeSingle = $('btnModeSingle');
   const btnModeBatch  = $('btnModeBatch');
   const readingsSingle = $('readingsSingle');
   const readingsBatch  = $('readingsBatch');
 
-  // Elements inside Batch container
+  // Batch elements
   const rbDefaultWell = $('rbDefaultWell');
   const rbAddRow = $('rbAddRow');
   const rbDuplicateLast = $('rbDuplicateLast');
@@ -35,62 +34,63 @@
   const rbTbody = $('rbTbody');
   const rbStatus = $('rbStatus');
 
-  // Data model
   const wells = [];
   let rows = [];
   let seq = 1;
 
-  // Wire mode toggle immediately (so UI can switch even if data isn’t loaded yet)
-  if (btnModeSingle && btnModeBatch && readingsSingle && readingsBatch){
-    btnModeSingle.addEventListener('click', () => {
-      readingsSingle.style.display = '';
-      readingsBatch.style.display = 'none';
-      btnModeSingle.classList.add('active');
-      btnModeBatch.classList.remove('active');
-      console.debug('[batch] switched to Single Entry');
-    });
-    btnModeBatch.addEventListener('click', () => {
-      readingsSingle.style.display = 'none';
-      readingsBatch.style.display = '';
-      btnModeBatch.classList.add('active');
-      btnModeSingle.classList.remove('active');
-      console.debug('[batch] switched to Batch Entry');
-    });
-  } else {
-    console.warn('[batch] Missing one of toggle elements: btnModeSingle, btnModeBatch, readingsSingle, readingsBatch.');
-  }
+  // Wire toggles immediately
+  (function wireToggles(){
+    if (btnModeSingle && btnModeBatch && readingsSingle && readingsBatch) {
+      btnModeSingle.addEventListener('click', () => {
+        readingsSingle.style.display = '';
+        readingsBatch.style.display = 'none';
+        btnModeSingle.classList.add('active');
+        btnModeBatch.classList.remove('active');
+        console.log('[batch] switched to Single Entry');
+      });
+      btnModeBatch.addEventListener('click', () => {
+        readingsSingle.style.display = 'none';
+        readingsBatch.style.display = '';
+        btnModeBatch.classList.add('active');
+        btnModeSingle.classList.remove('active');
+        console.log('[batch] switched to Batch Entry');
+      });
+      console.log('[batch] toggles wired');
+    } else {
+      console.warn('[batch] Missing toggle elements. Need ids: btnModeSingle, btnModeBatch, readingsSingle, readingsBatch');
+    }
+  })();
 
-  // Always render an initial row so the grid is visible
+  // Bootstrap grid UI immediately (so you can see it even if Supabase isn’t ready)
   bootstrapGrid();
 
   async function bootstrapGrid(){
-    // Wire top buttons
+    // Buttons
     rbAddRow?.addEventListener('click', ()=> addRow());
     rbDuplicateLast?.addEventListener('click', duplicateLast);
     rbClear?.addEventListener('click', ()=> { rows = []; renderBatch(); setBatchStatus('Cleared.'); });
     rbSaveAll?.addEventListener('click', saveAllBatch);
 
-    // Start with one row
+    // Show first row
     addRow();
 
-    // Load wells if Supabase is ready
+    // Try to ensure Supabase later (don’t block the UI)
     await ensureSupabase();
     if (sb) {
       await loadWells();
       renderBatch();
-      // Listen for external well changes
       document.addEventListener('wells:changed', async ()=>{
         await loadWells();
         renderBatch();
       });
+      console.log('[batch] bootstrap complete with wells:', wells.length);
     } else {
-      console.warn('[batch] Supabase not initialized (APP_CONFIG missing?). Grid is visible but wells won’t load yet.');
+      console.warn('[batch] Supabase not initialized yet (APP_CONFIG or supabase-js missing?). Grid visible without wells.');
     }
   }
 
   async function ensureSupabase(){
     if (sb) return;
-    // Retry once after DOM is fully parsed
     await new Promise(r=>setTimeout(r, 0));
     sb = getSb();
   }
@@ -107,7 +107,7 @@
       if (rbDefaultWell) {
         rbDefaultWell.innerHTML = wells.map(w => `<option value="${w.well_id}">${esc(w.well_code)}</option>`).join('');
       }
-      console.debug('[batch] wells loaded:', wells.length);
+      console.log('[batch] wells loaded:', wells.length);
     }catch(e){
       setBatchStatus('Failed to load wells list.', true);
       console.error('[batch] loadWells error:', e);
@@ -123,7 +123,7 @@
       date: seed?.date ?? today,
       last: seed?.last ?? '',
       curr: seed?.curr ?? '',
-      abs: seed?.abs ?? '',       // if '', we will send NULL (DB trigger will fill)
+      abs: seed?.abs ?? '',
       manualAbs: seed?.manualAbs ?? false,
       static: seed?.static ?? '',
       dynamic: seed?.dynamic ?? '',
@@ -176,7 +176,6 @@
       </tr>`;
     }).join('');
 
-    // Attach events per row
     rbTbody.querySelectorAll('tr').forEach(tr=>{
       const rid = Number(tr.getAttribute('data-rid'));
       const row = rows.find(x=>x.rid===rid); if (!row) return;
@@ -237,7 +236,6 @@
 
   async function saveAllBatch(){
     if (!sb) { setBatchStatus('Supabase not configured.', true); return; }
-
     setBatchStatus('Saving…');
     rows.forEach(validateRow);
     const bad = rows.filter(r=>r.err);
@@ -248,7 +246,6 @@
       reading_date: r.date,
       meter_last_m3: valNumOrNull(r.last),
       meter_current_m3: valNumOrNull(r.curr),
-      // If user typed a value, save it. If not, send null so trigger fills it.
       monthly_abstraction_m3: r.manualAbs ? valNumOrNull(r.abs) : null,
       static_water_level_m: valNumOrNull(r.static),
       dynamic_water_level_m: valNumOrNull(r.dynamic),
@@ -259,7 +256,6 @@
     try{
       const { error } = await sb.from('monthly_readings')
         .upsert(payload, { onConflict: 'well_id,year,month', ignoreDuplicates: false });
-
       if (error) throw error;
       setBatchStatus(`Saved ${payload.length} row(s).`);
     }catch(e){
