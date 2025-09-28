@@ -121,7 +121,7 @@
 
   function addRow(seed){
     const well = rbWell?.value || '';
-    const today = toFirstOfMonthISO(seed?.date ?? new Date().toISOString().slice(0,10));
+    const today = seed?.date ?? new Date().toISOString().slice(0,10);
     rows.push({
       rid: seq++,
       well_id: well,
@@ -184,7 +184,7 @@
       const row = rows.find(x=>x.rid===rid); if (!row) return;
 
       tr.querySelector('.date')?.addEventListener('change', e => {
-        row.date = toFirstOfMonthISO(e.target.value);
+        row.date = e.target.value;
         validateRow(row); updateRowView(tr, row);
       });
       tr.querySelector('.last')?.addEventListener('input', e => { row.last = e.target.value; if(!row.manualAbs) row.abs=''; validateRow(row); updateRowView(tr, row); });
@@ -282,7 +282,7 @@
       // last one wins (so process in natural order; later rows overwrite earlier)
       dedup.set(key, {
         well_id,
-        reading_date: toFirstOfMonthISO(r.date),
+        reading_date: r.date,
         meter_last_m3: valNumOrNull(r.last),
         meter_current_m3: valNumOrNull(r.curr),
         monthly_abstraction_m3: r.manualAbs ? valNumOrNull(r.abs) : null,
