@@ -19,6 +19,7 @@
   <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/proj4@2.10.0/dist/proj4.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <!-- App scripts -->
   <script defer src="./config.js"></script>
   <script defer src="./app.js"></script>
@@ -323,6 +324,43 @@
         <div class="summary-card">
           <div class="summary-label">Date Range</div>
           <div class="summary-value" id="dateRange">-</div>
+        </div>
+      </div>
+
+      <!-- Dashboard Charts -->
+      <div id="dashboardCharts" class="dashboard-section" style="display: none;">
+        <div class="dashboard-header">
+          <h3>📊 Abstraction Analytics Dashboard</h3>
+          <div class="chart-controls">
+            <button type="button" id="toggleCharts" class="btn-secondary">Hide Charts</button>
+            <button type="button" id="refreshCharts" class="btn-secondary">Refresh</button>
+          </div>
+        </div>
+        
+        <div class="charts-grid">
+          <!-- Time Series Chart -->
+          <div class="chart-container">
+            <div class="chart-title">Abstraction Over Time</div>
+            <canvas id="timeSeriesChart" width="400" height="200"></canvas>
+          </div>
+          
+          <!-- Monthly Pattern Chart -->
+          <div class="chart-container">
+            <div class="chart-title">Monthly Pattern (Average by Month)</div>
+            <canvas id="monthlyPatternChart" width="400" height="200"></canvas>
+          </div>
+          
+          <!-- Water Level Chart -->
+          <div class="chart-container">
+            <div class="chart-title">Water Levels Trend</div>
+            <canvas id="waterLevelChart" width="400" height="200"></canvas>
+          </div>
+          
+          <!-- Pumping Hours Chart -->
+          <div class="chart-container">
+            <div class="chart-title">Pumping Hours vs Abstraction</div>
+            <canvas id="pumpingChart" width="400" height="200"></canvas>
+          </div>
         </div>
       </div>
 
