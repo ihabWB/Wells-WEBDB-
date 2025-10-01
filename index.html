@@ -332,16 +332,17 @@
         <div id="estimationInfo" class="estimation-info" style="display: none;">
           <div class="info-header">
             <span class="info-icon">🧮</span>
-            <strong>Smart Abstraction Estimation Active</strong>
+            <strong>Smart Gap-Aware Abstraction Estimation Active</strong>
           </div>
-          <p>Some readings have negative or missing abstraction values. The system has automatically estimated these using <strong>only non-zero historical data</strong>:</p>
+          <p>Some readings have negative or missing abstraction values. The system has automatically estimated these using <strong>gap-aware calculations</strong> that account for irregular reading intervals:</p>
           <ul>
-            <li><strong>Historical Pattern Analysis:</strong> Uses actual pumping periods (excludes zero values)</li>
-            <li><strong>Seasonal Awareness:</strong> Considers monthly consumption patterns</li>
-            <li><strong>Intelligent Interpolation:</strong> Between known non-zero values</li>
-            <li><strong>Trend Analysis:</strong> Long-term consumption patterns from active periods</li>
+            <li><strong>Gap-Aware Analysis:</strong> Calculates monthly rates from actual time spans between readings</li>
+            <li><strong>Historical Patterns:</strong> Uses similar time gap patterns from historical data</li>
+            <li><strong>Seasonal Awareness:</strong> Considers monthly consumption patterns across gaps</li>
+            <li><strong>Smart Interpolation:</strong> Accounts for variable time periods between readings</li>
           </ul>
-          <p>Zero values are treated as non-pumping periods and excluded from calculations. Estimated values are marked with <span class="estimation-badge">EST</span> and highlighted in blue.</p>
+          <p><strong>Example:</strong> If readings are 3 months apart (Jan→Apr), the abstraction represents total consumption for Feb+Mar+Apr, giving ~200 m³/month average.</p>
+          <p>Zero values are treated as non-pumping periods. Estimated values are marked with <span class="estimation-badge">EST</span> and highlighted in blue.</p>
         </div>
 
         <table id="readingsTable" style="display: none;">
