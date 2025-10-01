@@ -487,10 +487,7 @@
 
   // Chart instances
   let charts = {
-    timeSeries: null,
-    monthlyPattern: null,
-    waterLevel: null,
-    pumping: null
+    annual: null
   };
 
   async function loadWellsForReadingsView() {
@@ -1073,130 +1070,122 @@
     
     if (validReadings.length === 0) return;
 
-    // Create individual charts
-    createTimeSeriesChart(validReadings);
-    createMonthlyPatternChart(validReadings);
-    createWaterLevelChart(validReadings);
-    createPumpingChart(validReadings);
+    // Create annual summary
+    createAnnualSummary(validReadings);
+    createAnnualChart(validReadings);
   }
 
   function destroyCharts() {
-    Object.keys(charts).forEach(key => {
-      if (charts[key]) {
-        charts[key].destroy();
-        charts[key] = null;
-      }
-    });
+    if (charts.annual) {
+      charts.annual.destroy();
+      charts.annual = null;
+    }
   }
 
-  function createTimeSeriesChart(readings) {
-    const ctx = document.getElementById('timeSeriesChart');
-    if (!ctx) return;
-
-    const sortedReadings = [...readings].sort((a, b) => new Date(a.reading_date) - new Date(b.reading_date));
+  function createAnnualSummary(readings) {
+    // Group readings by year and calculate annual totals
+    const yearlyData = {};
     
-    const labels = sortedReadings.map(r => new Date(r.reading_date).toLocaleDateString());
-    const abstractionData = sortedReadings.map(r => {
+    readings.forEach(r => {
+      const year = new Date(r.reading_date).getFullYear();
       const value = r.hasEstimation ? r.estimatedValue : r.monthly_abstraction_m3;
-      return value > 0 ? value : null;
-    });
-    const estimatedData = sortedReadings.map(r => r.hasEstimation && r.estimatedValue > 0 ? r.estimatedValue : null);
-
-    charts.timeSeries = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: labels,
-        datasets: [{
-          label: 'Actual Abstraction (m³)',
-          data: abstractionData,
-          borderColor: '#0e7490',
-          backgroundColor: 'rgba(14, 116, 144, 0.1)',
-          borderWidth: 2,
-          fill: true,
-          tension: 0.3,
-          pointBackgroundColor: '#0e7490',
-          pointBorderColor: '#ffffff',
-          pointBorderWidth: 2,
-          pointRadius: 4
-        }, {
-          label: 'Estimated Values',
-          data: estimatedData,
-          borderColor: '#f59e0b',
-          backgroundColor: 'rgba(245, 158, 11, 0.2)',
-          borderWidth: 2,
-          borderDash: [5, 5],
-          pointBackgroundColor: '#f59e0b',
-          pointBorderColor: '#ffffff',
-          pointBorderWidth: 2,
-          pointRadius: 5,
-          pointStyle: 'triangle'
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          y: {
-            beginAtZero: true,
-            title: {
-              display: true,
-              text: 'Abstraction (m³)'
-            }
-          },
-          x: {
-            title: {
-              display: true,
-              text: 'Reading Date'
-            }
-          }
-        },
-        plugins: {
-          legend: {
-            display: true
-          },
-          tooltip: {
-            mode: 'index',
-            intersect: false
-          }
+      
+      if (value > 0) {
+        if (!yearlyData[year]) {
+          yearlyData[year] = { total: 0, count: 0, readings: [] };
         }
+        yearlyData[year].total += value;
+        yearlyData[year].count++;
+        yearlyData[year].readings.push(r);
       }
     });
+
+    const years = Object.keys(yearlyData).sort();
+    const yearlyTotals = years.map(year => yearlyData[year].total);
+    
+    // Calculate statistics
+    const totalYears = years.length;
+    const grandTotal = yearlyTotals.reduce((sum, val) => sum + val, 0);
+    const annualAverage = totalYears > 0 ? grandTotal / totalYears : 0;
+    
+    // Find peak and lowest years
+    let peakYear = '-', peakValue = 0;
+    let lowestYear = '-', lowestValue = Infinity;
+    
+    years.forEach(year => {
+      const total = yearlyData[year].total;
+      if (total > peakValue) {
+        peakYear = year;
+        peakValue = total;
+      }
+      if (total < lowestValue) {
+        lowestYear = year;
+        lowestValue = total;
+      }
+    });
+    
+    if (lowestValue === Infinity) lowestValue = 0;
+
+    // Update UI elements
+    const totalYearsEl = document.getElementById('totalYears');
+    const annualAverageEl = document.getElementById('annualAverage');
+    const peakYearEl = document.getElementById('peakYear');
+    const peakYearValueEl = document.getElementById('peakYearValue');
+    const lowestYearEl = document.getElementById('lowestYear');
+    const lowestYearValueEl = document.getElementById('lowestYearValue');
+
+    if (totalYearsEl) totalYearsEl.textContent = totalYears;
+    if (annualAverageEl) annualAverageEl.textContent = formatNumber(annualAverage);
+    if (peakYearEl) peakYearEl.textContent = peakYear;
+    if (peakYearValueEl) peakYearValueEl.textContent = `${formatNumber(peakValue)} m³`;
+    if (lowestYearEl) lowestYearEl.textContent = totalYears > 1 ? lowestYear : '-';
+    if (lowestYearValueEl) lowestYearValueEl.textContent = totalYears > 1 ? `${formatNumber(lowestValue)} m³` : '-';
   }
 
-  function createMonthlyPatternChart(readings) {
-    const ctx = document.getElementById('monthlyPatternChart');
+  function createAnnualChart(readings) {
+    const ctx = document.getElementById('annualChart');
     if (!ctx) return;
 
-    // Group readings by month (0-11)
-    const monthlyData = new Array(12).fill(0);
-    const monthlyCounts = new Array(12).fill(0);
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
-                       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
+    // Group readings by year
+    const yearlyData = {};
+    
     readings.forEach(r => {
+      const year = new Date(r.reading_date).getFullYear();
       const value = r.hasEstimation ? r.estimatedValue : r.monthly_abstraction_m3;
+      
       if (value > 0) {
-        const month = new Date(r.reading_date).getMonth();
-        monthlyData[month] += value;
-        monthlyCounts[month]++;
+        if (!yearlyData[year]) {
+          yearlyData[year] = 0;
+        }
+        yearlyData[year] += value;
       }
     });
 
-    // Calculate averages
-    const monthlyAverages = monthlyData.map((total, i) => 
-      monthlyCounts[i] > 0 ? total / monthlyCounts[i] : 0
-    );
+    const years = Object.keys(yearlyData).sort();
+    const totals = years.map(year => yearlyData[year]);
 
-    charts.monthlyPattern = new Chart(ctx, {
+    if (years.length === 0) {
+      // Show message that no data is available
+      const context = ctx.getContext('2d');
+      context.font = '16px Arial';
+      context.fillStyle = '#666';
+      context.textAlign = 'center';
+      context.fillText('No annual data available', ctx.width / 2, ctx.height / 2);
+      return;
+    }
+
+    charts.annual = new Chart(ctx, {
       type: 'bar',
       data: {
-        labels: monthNames,
+        labels: years,
         datasets: [{
-          label: 'Average Abstraction (m³)',
-          data: monthlyAverages,
+          label: 'Annual Abstraction (m³)',
+          data: totals,
           backgroundColor: 'rgba(14, 116, 144, 0.7)',
           borderColor: '#0e7490',
-          borderWidth: 1
+          borderWidth: 2,
+          borderRadius: 4,
+          borderSkipped: false,
         }]
       },
       options: {
@@ -1207,149 +1196,26 @@
             beginAtZero: true,
             title: {
               display: true,
-              text: 'Average Abstraction (m³)'
+              text: 'Annual Abstraction (m³)',
+              font: {
+                size: 12,
+                weight: 'bold'
+              }
+            },
+            ticks: {
+              callback: function(value) {
+                return formatNumber(value);
+              }
             }
-          }
-        },
-        plugins: {
-          legend: {
-            display: false
-          }
-        }
-      }
-    });
-  }
-
-  function createWaterLevelChart(readings) {
-    const ctx = document.getElementById('waterLevelChart');
-    if (!ctx) return;
-
-    const sortedReadings = [...readings].sort((a, b) => new Date(a.reading_date) - new Date(b.reading_date));
-    const labels = sortedReadings.map(r => new Date(r.reading_date).toLocaleDateString());
-    
-    const staticLevels = sortedReadings.map(r => 
-      r.static_water_level_m !== null && r.static_water_level_m !== undefined ? r.static_water_level_m : null
-    );
-    const dynamicLevels = sortedReadings.map(r => 
-      r.dynamic_water_level_m !== null && r.dynamic_water_level_m !== undefined ? r.dynamic_water_level_m : null
-    );
-
-    // Check if we have any water level data
-    const hasStaticData = staticLevels.some(v => v !== null);
-    const hasDynamicData = dynamicLevels.some(v => v !== null);
-
-    if (!hasStaticData && !hasDynamicData) {
-      // Show message that no water level data is available
-      ctx.getContext('2d').font = '16px Arial';
-      ctx.getContext('2d').fillStyle = '#666';
-      ctx.getContext('2d').textAlign = 'center';
-      ctx.getContext('2d').fillText('No water level data available', ctx.width / 2, ctx.height / 2);
-      return;
-    }
-
-    const datasets = [];
-    
-    if (hasStaticData) {
-      datasets.push({
-        label: 'Static Water Level (m)',
-        data: staticLevels,
-        borderColor: '#10b981',
-        backgroundColor: 'rgba(16, 185, 129, 0.1)',
-        borderWidth: 2,
-        fill: false,
-        tension: 0.3
-      });
-    }
-    
-    if (hasDynamicData) {
-      datasets.push({
-        label: 'Dynamic Water Level (m)',
-        data: dynamicLevels,
-        borderColor: '#ef4444',
-        backgroundColor: 'rgba(239, 68, 68, 0.1)',
-        borderWidth: 2,
-        fill: false,
-        tension: 0.3
-      });
-    }
-
-    charts.waterLevel = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: labels,
-        datasets: datasets
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          y: {
-            title: {
-              display: true,
-              text: 'Water Level (m)'
-            }
-          }
-        },
-        plugins: {
-          legend: {
-            display: true
-          }
-        }
-      }
-    });
-  }
-
-  function createPumpingChart(readings) {
-    const ctx = document.getElementById('pumpingChart');
-    if (!ctx) return;
-
-    // Filter readings that have both pumping hours and abstraction data
-    const validData = readings.filter(r => {
-      const abstraction = r.hasEstimation ? r.estimatedValue : r.monthly_abstraction_m3;
-      return r.pumping_hours !== null && r.pumping_hours !== undefined && 
-             abstraction > 0 && r.pumping_hours > 0;
-    }).map(r => ({
-      x: r.pumping_hours,
-      y: r.hasEstimation ? r.estimatedValue : r.monthly_abstraction_m3,
-      date: r.reading_date
-    }));
-
-    if (validData.length === 0) {
-      // Show message that no pumping data is available
-      ctx.getContext('2d').font = '16px Arial';
-      ctx.getContext('2d').fillStyle = '#666';
-      ctx.getContext('2d').textAlign = 'center';
-      ctx.getContext('2d').fillText('No pumping hours data available', ctx.width / 2, ctx.height / 2);
-      return;
-    }
-
-    charts.pumping = new Chart(ctx, {
-      type: 'scatter',
-      data: {
-        datasets: [{
-          label: 'Pumping Efficiency',
-          data: validData,
-          backgroundColor: 'rgba(14, 116, 144, 0.6)',
-          borderColor: '#0e7490',
-          borderWidth: 1,
-          pointRadius: 6,
-          pointHoverRadius: 8
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
+          },
           x: {
             title: {
               display: true,
-              text: 'Pumping Hours'
-            }
-          },
-          y: {
-            title: {
-              display: true,
-              text: 'Abstraction (m³)'
+              text: 'Year',
+              font: {
+                size: 12,
+                weight: 'bold'
+              }
             }
           }
         },
@@ -1360,16 +1226,16 @@
           tooltip: {
             callbacks: {
               label: function(context) {
-                const point = context.parsed;
-                const dataPoint = validData[context.dataIndex];
-                return [
-                  `Date: ${new Date(dataPoint.date).toLocaleDateString()}`,
-                  `Pumping Hours: ${point.x}`,
-                  `Abstraction: ${point.y.toFixed(2)} m³`,
-                  `Efficiency: ${(point.y / point.x).toFixed(2)} m³/hour`
-                ];
+                const value = context.parsed.y;
+                return `${formatNumber(value)} m³`;
               }
             }
+          }
+        },
+        layout: {
+          padding: {
+            top: 20,
+            bottom: 10
           }
         }
       }
@@ -1401,11 +1267,13 @@
 
   if (toggleChartsBtn) {
     toggleChartsBtn.addEventListener('click', () => {
-      const chartsGrid = document.querySelector('.charts-grid');
-      if (chartsGrid) {
-        const isHidden = chartsGrid.style.display === 'none';
-        chartsGrid.style.display = isHidden ? 'grid' : 'none';
-        toggleChartsBtn.textContent = isHidden ? 'Hide Charts' : 'Show Charts';
+      const summaryGrid = document.querySelector('.annual-summary-grid');
+      const chartContainer = document.querySelector('.simple-chart-container');
+      if (summaryGrid && chartContainer) {
+        const isHidden = summaryGrid.style.display === 'none';
+        summaryGrid.style.display = isHidden ? 'grid' : 'none';
+        chartContainer.style.display = isHidden ? 'block' : 'none';
+        toggleChartsBtn.textContent = isHidden ? 'Hide Summary' : 'Show Summary';
       }
     });
   }
