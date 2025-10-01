@@ -1167,53 +1167,64 @@
     if (years.length === 0) {
       // Show message that no data is available
       const context = ctx.getContext('2d');
-      context.font = '16px Arial';
-      context.fillStyle = '#666';
+      context.font = '14px Arial';
+      context.fillStyle = '#999';
       context.textAlign = 'center';
       context.fillText('No annual data available', ctx.width / 2, ctx.height / 2);
       return;
     }
 
     charts.annual = new Chart(ctx, {
-      type: 'bar',
+      type: 'line',
       data: {
         labels: years,
         datasets: [{
-          label: 'Annual Abstraction (m³)',
+          label: 'Annual Abstraction',
           data: totals,
-          backgroundColor: 'rgba(14, 116, 144, 0.7)',
           borderColor: '#0e7490',
-          borderWidth: 2,
-          borderRadius: 4,
-          borderSkipped: false,
+          backgroundColor: 'rgba(14, 116, 144, 0.1)',
+          borderWidth: 3,
+          pointBackgroundColor: '#0e7490',
+          pointBorderColor: '#ffffff',
+          pointBorderWidth: 2,
+          pointRadius: 5,
+          pointHoverRadius: 7,
+          fill: true,
+          tension: 0.3
         }]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        interaction: {
+          intersect: false,
+          mode: 'index'
+        },
         scales: {
           y: {
             beginAtZero: true,
-            title: {
-              display: true,
-              text: 'Annual Abstraction (m³)',
-              font: {
-                size: 12,
-                weight: 'bold'
-              }
+            grid: {
+              color: 'rgba(255, 255, 255, 0.1)',
+              lineWidth: 1
             },
             ticks: {
+              color: '#a7b6c8',
+              font: {
+                size: 11
+              },
               callback: function(value) {
-                return formatNumber(value);
+                return value >= 1000 ? (value/1000).toFixed(1) + 'k' : value.toFixed(0);
               }
             }
           },
           x: {
-            title: {
-              display: true,
-              text: 'Year',
+            grid: {
+              display: false
+            },
+            ticks: {
+              color: '#a7b6c8',
               font: {
-                size: 12,
+                size: 11,
                 weight: 'bold'
               }
             }
@@ -1224,18 +1235,35 @@
             display: false
           },
           tooltip: {
+            backgroundColor: 'rgba(11, 19, 36, 0.9)',
+            titleColor: '#e8eef5',
+            bodyColor: '#a7b6c8',
+            borderColor: '#0e7490',
+            borderWidth: 1,
+            cornerRadius: 6,
+            displayColors: false,
             callbacks: {
+              title: function(context) {
+                return `Year ${context[0].label}`;
+              },
               label: function(context) {
                 const value = context.parsed.y;
-                return `${formatNumber(value)} m³`;
+                return `Total: ${formatNumber(value)} m³`;
               }
             }
           }
         },
         layout: {
           padding: {
-            top: 20,
-            bottom: 10
+            top: 10,
+            bottom: 5,
+            left: 5,
+            right: 5
+          }
+        },
+        elements: {
+          point: {
+            hoverBorderWidth: 3
           }
         }
       }
@@ -1268,7 +1296,7 @@
   if (toggleChartsBtn) {
     toggleChartsBtn.addEventListener('click', () => {
       const summaryGrid = document.querySelector('.annual-summary-grid');
-      const chartContainer = document.querySelector('.simple-chart-container');
+      const chartContainer = document.querySelector('.compact-chart-container');
       if (summaryGrid && chartContainer) {
         const isHidden = summaryGrid.style.display === 'none';
         summaryGrid.style.display = isHidden ? 'grid' : 'none';
