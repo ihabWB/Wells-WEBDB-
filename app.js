@@ -72,6 +72,13 @@
   const btnRefresh = document.getElementById('btnRefresh');
   const filterText = document.getElementById('filterText');
 
+  // Edit modal elements
+  const editWellModal = document.getElementById('editWellModal');
+  const formEditWell = document.getElementById('formEditWell');
+  const msgEditWell = document.getElementById('msgEditWell');
+  const closeEditModal = document.getElementById('closeEditModal');
+  const cancelEdit = document.getElementById('cancelEdit');
+
   // Load wells into dropdowns
   async function loadWellsToDropdowns() {
     if (!supabase) return;
@@ -98,7 +105,7 @@
     const q = (filterText?.value || '').trim();
     let query = supabase
       .from('wells')
-      .select('well_code, well_name, governorate, district, village, aquifer, well_type, current_status, x, y')
+      .select('well_id, well_code, well_name, governorate, district, village, aquifer, well_type, current_status, x, y')
       .order('well_code', { ascending: true })
       .limit(1000);
     if (q) {
@@ -117,8 +124,10 @@
         <td>${esc(w.aquifer || '')}</td>
         <td>${esc(w.well_type || '')}</td>
         <td>${esc(w.current_status || '')}</td>
+        <td><button type="button" class="btn-edit" onclick="openEditModal('${w.well_id}')">Edit</button></td>
       </tr>
     `).join('');
+    
     // Update map markers if map is already loaded
     if (map) renderMap(data || []);
   }
@@ -233,6 +242,123 @@
       const { error } = await supabase.from('service_areas').insert(payload);
       if (error) setMsg(msgService, error.message || 'Error saving service area.', 'err');
       else { setMsg(msgService, 'Service area saved.', 'ok'); formService.reset(); }
+    });
+  }
+
+  // Edit Well Modal functionality
+  window.openEditModal = async function(wellId) {
+    if (!supabase || !wellId) return;
+    
+    // Fetch well data
+    const { data, error } = await supabase
+      .from('wells')
+      .select('*')
+      .eq('well_id', wellId)
+      .single();
+    
+    if (error) {
+      console.warn('Error loading well for edit:', error.message);
+      return;
+    }
+    
+    if (!data) {
+      console.warn('Well not found');
+      return;
+    }
+    
+    // Populate form fields
+    document.getElementById('editWellId').value = data.well_id;
+    document.getElementById('editWellCode').value = data.well_code || '';
+    document.getElementById('editWellName').value = data.well_name || '';
+    document.getElementById('editGovernorate').value = data.governorate || '';
+    document.getElementById('editDistrict').value = data.district || '';
+    document.getElementById('editVillage').value = data.village || '';
+    document.getElementById('editX').value = data.x || '';
+    document.getElementById('editY').value = data.y || '';
+    document.getElementById('editZ').value = data.z || '';
+    document.getElementById('editOwner').value = data.owner_service_provider || '';
+    document.getElementById('editAquifer').value = data.aquifer || '';
+    document.getElementById('editWellType').value = data.well_type || '';
+    document.getElementById('editDrillingYear').value = data.drilling_year || '';
+    document.getElementById('editStatus').value = data.current_status || '';
+    document.getElementById('editWellDepth').value = data.well_depth_m || '';
+    document.getElementById('editCasingDepth').value = data.casing_depth_m || '';
+    document.getElementById('editPumpType').value = data.pump_type || '';
+    document.getElementById('editPumpCapacity').value = data.pump_capacity_m3_per_hr || '';
+    document.getElementById('editDesignCapacity').value = data.design_capacity_m3_per_year || '';
+    document.getElementById('editRemarks').value = data.remarks || '';
+    
+    // Show modal
+    if (editWellModal) {
+      editWellModal.style.display = 'block';
+      setMsg(msgEditWell, '', 'ok'); // Clear any previous messages
+    }
+  }
+  
+  function closeEditModalFunc() {
+    if (editWellModal) {
+      editWellModal.style.display = 'none';
+    }
+    if (formEditWell) {
+      formEditWell.reset();
+    }
+  }
+  
+  // Modal event listeners
+  if (closeEditModal) {
+    closeEditModal.addEventListener('click', closeEditModalFunc);
+  }
+  if (cancelEdit) {
+    cancelEdit.addEventListener('click', closeEditModalFunc);
+  }
+  
+  // Close modal when clicking outside
+  if (editWellModal) {
+    editWellModal.addEventListener('click', (e) => {
+      if (e.target === editWellModal) {
+        closeEditModalFunc();
+      }
+    });
+  }
+  
+  // Edit form submit handler
+  if (formEditWell) {
+    formEditWell.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const wellId = document.getElementById('editWellId').value;
+      if (!wellId) {
+        setMsg(msgEditWell, 'No well selected for editing.', 'err');
+        return;
+      }
+      
+      const payload = getFormPayload(formEditWell, [
+        'well_code','well_name','governorate','district','village',
+        'x','y','z','owner_service_provider','aquifer','well_type',
+        'drilling_year','well_depth_m','casing_depth_m','pump_type',
+        'pump_capacity_m3_per_hr','design_capacity_m3_per_year',
+        'current_status','remarks'
+      ], ['x','y','z','drilling_year','well_depth_m','casing_depth_m','pump_capacity_m3_per_hr','design_capacity_m3_per_year']);
+
+      if (!payload.well_code || !payload.well_code.trim()) {
+        return setMsg(msgEditWell, 'Well Code is required.', 'err');
+      }
+
+      const { error } = await supabase
+        .from('wells')
+        .update(payload)
+        .eq('well_id', wellId);
+        
+      if (error) {
+        setMsg(msgEditWell, error.message || 'Error updating well.', 'err');
+      } else {
+        setMsg(msgEditWell, 'Well updated successfully.', 'ok');
+        setTimeout(() => {
+          closeEditModalFunc();
+          refreshWells();
+          loadWellsToDropdowns(); // Refresh dropdowns in case name/code changed
+        }, 1500);
+      }
     });
   }
 
