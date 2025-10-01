@@ -959,16 +959,32 @@
     // Get abstraction values (use estimated values where available, exclude zeros)
     const abstractions = readings
       .map(r => r.hasEstimation ? r.estimatedValue : r.monthly_abstraction_m3)
-      .filter(a => a !== null && a !== undefined && Number.isFinite(a) && a > 0); // Changed from >= 0 to > 0
+      .filter(a => a !== null && a !== undefined && Number.isFinite(a) && a > 0);
     
     const totalAbs = abstractions.reduce((sum, val) => sum + val, 0);
-    const avgAbs = abstractions.length > 0 ? totalAbs / abstractions.length : 0;
     const validReadingsCount = abstractions.length;
 
+    // Calculate time-based average considering irregular intervals
+    let avgAbs = 0;
     const dates = readings
       .map(r => r.reading_date)
       .filter(d => d)
       .sort();
+    
+    if (dates.length >= 2 && totalAbs > 0) {
+      // Calculate total months covered from first to last reading
+      const firstDate = new Date(dates[0]);
+      const lastDate = new Date(dates[dates.length - 1]);
+      const totalMonths = getMonthsDifference(firstDate, lastDate);
+      
+      if (totalMonths > 0) {
+        avgAbs = totalAbs / totalMonths; // True monthly average accounting for gaps
+      } else {
+        avgAbs = validReadingsCount > 0 ? totalAbs / validReadingsCount : 0;
+      }
+    } else if (validReadingsCount > 0) {
+      avgAbs = totalAbs / validReadingsCount; // Fallback for single reading
+    }
     
     const dateRangeText = dates.length > 0 
       ? dates.length === 1 
@@ -976,7 +992,7 @@
         : `${dates[0]} to ${dates[dates.length - 1]}`
       : '-';
 
-    // Update summary with estimation info and valid readings count
+    // Update summary with estimation info and time-aware calculation
     if (totalRecords) {
       const recordsText = estimatedCount > 0 
         ? `${count} total (${estimatedCount} estimated, ${validReadingsCount} with pumping)`
@@ -987,7 +1003,10 @@
       totalAbstraction.innerHTML = `<span title="Total abstraction excluding zero values">${formatNumber(totalAbs)}</span>`;
     }
     if (avgMonthly) {
-      avgMonthly.innerHTML = `<span title="Average monthly abstraction excluding zero values">${formatNumber(avgAbs)}</span>`;
+      const tooltipText = dates.length >= 2 
+        ? `Average monthly rate across ${Math.round(getMonthsDifference(new Date(dates[0]), new Date(dates[dates.length - 1])))} months (${dates[0]} to ${dates[dates.length - 1]})` 
+        : "Average monthly abstraction excluding zero values";
+      avgMonthly.innerHTML = `<span title="${tooltipText}">${formatNumber(avgAbs)}</span>`;
     }
     if (dateRange) dateRange.textContent = dateRangeText;
   }
