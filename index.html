@@ -334,13 +334,14 @@
             <span class="info-icon">🧮</span>
             <strong>Smart Abstraction Estimation Active</strong>
           </div>
-          <p>Some readings have negative or missing abstraction values. The system has automatically estimated these using:</p>
+          <p>Some readings have negative or missing abstraction values. The system has automatically estimated these using <strong>only non-zero historical data</strong>:</p>
           <ul>
-            <li><strong>Time Series Analysis:</strong> Patterns from valid readings</li>
-            <li><strong>Interpolation:</strong> Between known values</li>
-            <li><strong>Trend Analysis:</strong> Long-term consumption patterns</li>
+            <li><strong>Historical Pattern Analysis:</strong> Uses actual pumping periods (excludes zero values)</li>
+            <li><strong>Seasonal Awareness:</strong> Considers monthly consumption patterns</li>
+            <li><strong>Intelligent Interpolation:</strong> Between known non-zero values</li>
+            <li><strong>Trend Analysis:</strong> Long-term consumption patterns from active periods</li>
           </ul>
-          <p>Estimated values are marked with <span class="estimation-badge">EST</span> and highlighted in blue.</p>
+          <p>Zero values are treated as non-pumping periods and excluded from calculations. Estimated values are marked with <span class="estimation-badge">EST</span> and highlighted in blue.</p>
         </div>
 
         <table id="readingsTable" style="display: none;">
