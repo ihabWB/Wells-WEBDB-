@@ -476,6 +476,7 @@
   const readingsTable = document.getElementById('readingsTable');
   const readingsTableBody = document.getElementById('readingsTableBody');
   const noReadingsMessage = document.getElementById('noReadingsMessage');
+  const estimationInfo = document.getElementById('estimationInfo');
 
   // Summary elements
   const totalRecords = document.getElementById('totalRecords');
@@ -550,24 +551,36 @@
       return;
     }
 
+    // Process readings with intelligent abstraction estimation
+    const processedReadings = estimateAbstractions(readings);
+
     // Show table and summary
     if (readingsTable) readingsTable.style.display = 'table';
     if (readingsSummary) readingsSummary.style.display = 'flex';
     if (noReadingsMessage) noReadingsMessage.style.display = 'none';
+    
+    // Show estimation info if any readings are estimated
+    const hasEstimations = processedReadings.some(r => r.hasEstimation);
+    if (estimationInfo) {
+      estimationInfo.style.display = hasEstimations ? 'block' : 'none';
+    }
 
     // Populate table
     if (readingsTableBody) {
-      readingsTableBody.innerHTML = readings.map(reading => {
+      readingsTableBody.innerHTML = processedReadings.map(reading => {
         const date = new Date(reading.reading_date);
         const monthYear = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
         
+        // Determine abstraction display
+        const absDisplay = getAbstractionDisplay(reading);
+        
         return `
-          <tr>
+          <tr class="${reading.hasEstimation ? 'estimated-row' : ''}">
             <td>${reading.reading_date || '-'}</td>
             <td>${monthYear}</td>
             <td>${formatNumber(reading.meter_last_m3)}</td>
             <td>${formatNumber(reading.meter_current_m3)}</td>
-            <td class="abstraction-cell">${formatNumber(reading.monthly_abstraction_m3)}</td>
+            <td class="abstraction-cell">${absDisplay}</td>
             <td>${formatNumber(reading.static_water_level_m)}</td>
             <td>${formatNumber(reading.dynamic_water_level_m)}</td>
             <td>${formatNumber(reading.pumping_hours)}</td>
@@ -578,14 +591,153 @@
     }
 
     // Calculate and display summary
-    updateReadingsSummary(readings);
+    updateReadingsSummary(processedReadings);
+  }
+
+  function estimateAbstractions(readings) {
+    if (!readings || readings.length <= 1) return readings;
+
+    // Sort by date to ensure proper time series
+    const sortedReadings = [...readings].sort((a, b) => 
+      new Date(a.reading_date) - new Date(b.reading_date)
+    );
+
+    // Identify valid abstractions for pattern analysis
+    const validAbstractions = [];
+    sortedReadings.forEach((reading, index) => {
+      const abs = reading.monthly_abstraction_m3;
+      if (abs !== null && abs !== undefined && Number.isFinite(abs) && abs >= 0) {
+        validAbstractions.push({ value: abs, index, date: reading.reading_date });
+      }
+    });
+
+    // If we have fewer than 2 valid values, can't estimate effectively
+    if (validAbstractions.length < 2) {
+      return sortedReadings.map(r => ({ ...r, hasEstimation: false }));
+    }
+
+    // Calculate average monthly abstraction and trend
+    const avgAbstraction = validAbstractions.reduce((sum, v) => sum + v.value, 0) / validAbstractions.length;
+    const trend = calculateTrend(validAbstractions);
+
+    // Process each reading for estimation
+    const processedReadings = sortedReadings.map((reading, index) => {
+      const abs = reading.monthly_abstraction_m3;
+      
+      // If abstraction is valid and positive, keep it
+      if (abs !== null && abs !== undefined && Number.isFinite(abs) && abs >= 0) {
+        return { ...reading, hasEstimation: false, estimatedValue: null };
+      }
+
+      // Estimate the abstraction
+      const estimated = estimateAbstractionValue(index, sortedReadings, validAbstractions, avgAbstraction, trend);
+      
+      return {
+        ...reading,
+        hasEstimation: true,
+        estimatedValue: estimated,
+        originalValue: abs
+      };
+    });
+
+    return processedReadings;
+  }
+
+  function calculateTrend(validAbstractions) {
+    if (validAbstractions.length < 2) return 0;
+    
+    // Simple linear trend calculation
+    const n = validAbstractions.length;
+    let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+    
+    validAbstractions.forEach((item, i) => {
+      sumX += i;
+      sumY += item.value;
+      sumXY += i * item.value;
+      sumX2 += i * i;
+    });
+    
+    const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+    return isFinite(slope) ? slope : 0;
+  }
+
+  function estimateAbstractionValue(targetIndex, allReadings, validAbstractions, avgAbstraction, trend) {
+    const targetDate = new Date(allReadings[targetIndex].reading_date);
+    
+    // Find nearest valid values before and after
+    const before = validAbstractions.filter(v => v.index < targetIndex).pop();
+    const after = validAbstractions.find(v => v.index > targetIndex);
+    
+    // Method 1: Interpolation between nearest values
+    if (before && after) {
+      const beforeDate = new Date(allReadings[before.index].reading_date);
+      const afterDate = new Date(allReadings[after.index].reading_date);
+      const totalDays = (afterDate - beforeDate) / (1000 * 60 * 60 * 24);
+      const targetDays = (targetDate - beforeDate) / (1000 * 60 * 60 * 24);
+      
+      if (totalDays > 0) {
+        const ratio = targetDays / totalDays;
+        const interpolated = before.value + (after.value - before.value) * ratio;
+        return Math.max(0, interpolated); // Ensure non-negative
+      }
+    }
+    
+    // Method 2: Extrapolation from nearest value with trend
+    if (before) {
+      const monthsDiff = getMonthsDifference(
+        new Date(allReadings[before.index].reading_date),
+        targetDate
+      );
+      const estimated = before.value + (trend * monthsDiff);
+      return Math.max(0, estimated);
+    }
+    
+    if (after) {
+      const monthsDiff = getMonthsDifference(
+        targetDate,
+        new Date(allReadings[after.index].reading_date)
+      );
+      const estimated = after.value - (trend * monthsDiff);
+      return Math.max(0, estimated);
+    }
+    
+    // Method 3: Use average as fallback
+    return Math.max(0, avgAbstraction);
+  }
+
+  function getMonthsDifference(date1, date2) {
+    const months = (date2.getFullYear() - date1.getFullYear()) * 12 + 
+                   (date2.getMonth() - date1.getMonth());
+    return Math.abs(months);
+  }
+
+  function getAbstractionDisplay(reading) {
+    if (reading.hasEstimation) {
+      const estimated = formatNumber(reading.estimatedValue);
+      const original = reading.originalValue !== null && reading.originalValue !== undefined 
+        ? formatNumber(reading.originalValue) 
+        : 'N/A';
+      
+      return `
+        <span class="estimated-value" title="Estimated value based on time series analysis">
+          ${estimated} <span class="estimation-badge">EST</span>
+        </span>
+        ${original !== 'N/A' && original !== '-' ? 
+          `<br><small class="original-value">Original: ${original}</small>` : ''}
+      `;
+    } else {
+      return formatNumber(reading.monthly_abstraction_m3);
+    }
   }
 
   function updateReadingsSummary(readings) {
     const count = readings.length;
+    const estimatedCount = readings.filter(r => r.hasEstimation).length;
+    
+    // Get abstraction values (use estimated values where available)
     const abstractions = readings
-      .map(r => r.monthly_abstraction_m3)
-      .filter(a => a !== null && a !== undefined && Number.isFinite(a));
+      .map(r => r.hasEstimation ? r.estimatedValue : r.monthly_abstraction_m3)
+      .filter(a => a !== null && a !== undefined && Number.isFinite(a) && a >= 0);
     
     const totalAbs = abstractions.reduce((sum, val) => sum + val, 0);
     const avgAbs = abstractions.length > 0 ? totalAbs / abstractions.length : 0;
@@ -601,7 +753,12 @@
         : `${dates[0]} to ${dates[dates.length - 1]}`
       : '-';
 
-    if (totalRecords) totalRecords.textContent = count;
+    // Update summary with estimation info
+    if (totalRecords) {
+      totalRecords.innerHTML = estimatedCount > 0 
+        ? `${count} <small>(${estimatedCount} estimated)</small>`
+        : count;
+    }
     if (totalAbstraction) totalAbstraction.textContent = formatNumber(totalAbs);
     if (avgMonthly) avgMonthly.textContent = formatNumber(avgAbs);
     if (dateRange) dateRange.textContent = dateRangeText;
@@ -611,6 +768,7 @@
     if (readingsTable) readingsTable.style.display = 'none';
     if (readingsSummary) readingsSummary.style.display = 'none';
     if (noReadingsMessage) noReadingsMessage.style.display = 'block';
+    if (estimationInfo) estimationInfo.style.display = 'none';
   }
 
   function clearReadingsFilters() {
