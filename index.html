@@ -36,6 +36,7 @@
   <nav class="tabs">
     <button class="tab active" data-tab="wells">Wells</button>
     <button class="tab" data-tab="readings">Monthly Readings</button>
+    <button class="tab" data-tab="viewReadings">View Readings</button>
     <button class="tab" data-tab="quality">Water Quality</button>
     <button class="tab" data-tab="maintenance">Maintenance</button>
     <button class="tab" data-tab="service">Service Areas</button>
@@ -275,6 +276,82 @@
     Save uses upsert on (well, year, month).
   </p>
 </div>
+    </section>
+
+    <section id="viewReadings" class="panel">
+      <h2>View Monthly Readings</h2>
+      
+      <div class="readings-controls">
+        <div class="grid-3">
+          <div class="field">
+            <label>Select Well*</label>
+            <select id="viewReadingsWell">
+              <option value="">— Select Well —</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>From Date</label>
+            <input type="date" id="viewReadingsFromDate" />
+          </div>
+          <div class="field">
+            <label>To Date</label>
+            <input type="date" id="viewReadingsToDate" />
+          </div>
+        </div>
+        
+        <div class="readings-actions">
+          <button type="button" id="loadReadingsBtn">Load Readings</button>
+          <button type="button" id="clearReadingsBtn" class="btn-secondary">Clear Filters</button>
+          <span id="readingsStatus" class="status-text"></span>
+        </div>
+      </div>
+
+      <!-- Summary Cards -->
+      <div id="readingsSummary" class="summary-cards" style="display: none;">
+        <div class="summary-card">
+          <div class="summary-label">Total Records</div>
+          <div class="summary-value" id="totalRecords">0</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-label">Total Abstraction (m³)</div>
+          <div class="summary-value" id="totalAbstraction">0</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-label">Average Monthly (m³)</div>
+          <div class="summary-value" id="avgMonthly">0</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-label">Date Range</div>
+          <div class="summary-value" id="dateRange">-</div>
+        </div>
+      </div>
+
+      <!-- Readings Table -->
+      <div class="readings-table-container">
+        <table id="readingsTable" style="display: none;">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Month/Year</th>
+              <th>Meter Last (m³)</th>
+              <th>Meter Current (m³)</th>
+              <th>Abstraction (m³)</th>
+              <th>Static WL (m)</th>
+              <th>Dynamic WL (m)</th>
+              <th>Pumping Hours</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody id="readingsTableBody">
+          </tbody>
+        </table>
+        
+        <div id="noReadingsMessage" class="no-data-message" style="display: none;">
+          <div class="no-data-icon">📊</div>
+          <h3>No readings found</h3>
+          <p>Select a well and date range to view monthly readings, or add some readings first.</p>
+        </div>
+      </div>
     </section>
 
     <section id="quality" class="panel">
