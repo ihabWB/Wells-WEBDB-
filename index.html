@@ -330,37 +330,54 @@
       <!-- Dashboard Charts -->
       <div id="dashboardCharts" class="dashboard-section" style="display: none;">
         <div class="dashboard-header">
-          <h3>📊 Abstraction Analytics Dashboard</h3>
+          <h3>📊 Annual Abstraction Summary</h3>
           <div class="chart-controls">
-            <button type="button" id="toggleCharts" class="btn-secondary">Hide Charts</button>
+            <button type="button" id="toggleCharts" class="btn-secondary">Hide Summary</button>
             <button type="button" id="refreshCharts" class="btn-secondary">Refresh</button>
           </div>
         </div>
         
-        <div class="charts-grid">
-          <!-- Time Series Chart -->
-          <div class="chart-container">
-            <div class="chart-title">Abstraction Over Time</div>
-            <canvas id="timeSeriesChart" width="400" height="200"></canvas>
+        <!-- Annual Summary Cards -->
+        <div class="annual-summary-grid">
+          <div class="annual-card">
+            <div class="annual-icon">📅</div>
+            <div class="annual-content">
+              <div class="annual-label">Total Years Monitored</div>
+              <div class="annual-value" id="totalYears">0</div>
+            </div>
           </div>
           
-          <!-- Monthly Pattern Chart -->
-          <div class="chart-container">
-            <div class="chart-title">Monthly Pattern (Average by Month)</div>
-            <canvas id="monthlyPatternChart" width="400" height="200"></canvas>
+          <div class="annual-card">
+            <div class="annual-icon">💧</div>
+            <div class="annual-content">
+              <div class="annual-label">Annual Average (m³/year)</div>
+              <div class="annual-value" id="annualAverage">0</div>
+            </div>
           </div>
           
-          <!-- Water Level Chart -->
-          <div class="chart-container">
-            <div class="chart-title">Water Levels Trend</div>
-            <canvas id="waterLevelChart" width="400" height="200"></canvas>
+          <div class="annual-card">
+            <div class="annual-icon">📈</div>
+            <div class="annual-content">
+              <div class="annual-label">Peak Year</div>
+              <div class="annual-value" id="peakYear">-</div>
+              <div class="annual-sub" id="peakYearValue">0 m³</div>
+            </div>
           </div>
           
-          <!-- Pumping Hours Chart -->
-          <div class="chart-container">
-            <div class="chart-title">Pumping Hours vs Abstraction</div>
-            <canvas id="pumpingChart" width="400" height="200"></canvas>
+          <div class="annual-card">
+            <div class="annual-icon">📉</div>
+            <div class="annual-content">
+              <div class="annual-label">Lowest Year</div>
+              <div class="annual-value" id="lowestYear">-</div>
+              <div class="annual-sub" id="lowestYearValue">0 m³</div>
+            </div>
           </div>
+        </div>
+        
+        <!-- Simple Annual Chart -->
+        <div class="simple-chart-container">
+          <div class="chart-title">Annual Abstraction Trend</div>
+          <canvas id="annualChart" width="800" height="300"></canvas>
         </div>
       </div>
 
