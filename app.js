@@ -465,9 +465,200 @@
     }
   }
 
+  // View Readings functionality
+  const viewReadingsWell = document.getElementById('viewReadingsWell');
+  const viewReadingsFromDate = document.getElementById('viewReadingsFromDate');
+  const viewReadingsToDate = document.getElementById('viewReadingsToDate');
+  const loadReadingsBtn = document.getElementById('loadReadingsBtn');
+  const clearReadingsBtn = document.getElementById('clearReadingsBtn');
+  const readingsStatus = document.getElementById('readingsStatus');
+  const readingsSummary = document.getElementById('readingsSummary');
+  const readingsTable = document.getElementById('readingsTable');
+  const readingsTableBody = document.getElementById('readingsTableBody');
+  const noReadingsMessage = document.getElementById('noReadingsMessage');
+
+  // Summary elements
+  const totalRecords = document.getElementById('totalRecords');
+  const totalAbstraction = document.getElementById('totalAbstraction');
+  const avgMonthly = document.getElementById('avgMonthly');
+  const dateRange = document.getElementById('dateRange');
+
+  async function loadWellsForReadingsView() {
+    if (!supabase || !viewReadingsWell) return;
+    
+    const { data, error } = await supabase
+      .from('wells')
+      .select('well_id, well_code, well_name')
+      .order('well_code', { ascending: true })
+      .limit(1000);
+      
+    if (error) {
+      console.warn('Load wells for readings view error:', error.message);
+      return;
+    }
+    
+    const options = (data || []).map(w =>
+      `<option value="${w.well_id}">${esc(w.well_code)}${w.well_name ? ' - ' + esc(w.well_name) : ''}</option>`
+    ).join('');
+    
+    viewReadingsWell.innerHTML = `<option value="">— Select Well —</option>` + options;
+  }
+
+  async function loadMonthlyReadings() {
+    if (!supabase || !viewReadingsWell || !viewReadingsWell.value) {
+      setReadingsStatus('Please select a well first.', 'err');
+      return;
+    }
+
+    const wellId = viewReadingsWell.value;
+    const fromDate = viewReadingsFromDate?.value || null;
+    const toDate = viewReadingsToDate?.value || null;
+
+    setReadingsStatus('Loading readings...', 'info');
+
+    try {
+      let query = supabase
+        .from('monthly_readings')
+        .select('*')
+        .eq('well_id', wellId)
+        .order('reading_date', { ascending: false });
+
+      if (fromDate) {
+        query = query.gte('reading_date', fromDate);
+      }
+      if (toDate) {
+        query = query.lte('reading_date', toDate);
+      }
+
+      const { data, error } = await query.limit(500);
+
+      if (error) throw error;
+
+      displayReadings(data || []);
+      setReadingsStatus(`Found ${(data || []).length} reading(s).`, 'ok');
+
+    } catch (error) {
+      console.error('Error loading readings:', error);
+      setReadingsStatus(`Error: ${error.message}`, 'err');
+      showNoReadingsMessage();
+    }
+  }
+
+  function displayReadings(readings) {
+    if (!readings || readings.length === 0) {
+      showNoReadingsMessage();
+      return;
+    }
+
+    // Show table and summary
+    if (readingsTable) readingsTable.style.display = 'table';
+    if (readingsSummary) readingsSummary.style.display = 'flex';
+    if (noReadingsMessage) noReadingsMessage.style.display = 'none';
+
+    // Populate table
+    if (readingsTableBody) {
+      readingsTableBody.innerHTML = readings.map(reading => {
+        const date = new Date(reading.reading_date);
+        const monthYear = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        
+        return `
+          <tr>
+            <td>${reading.reading_date || '-'}</td>
+            <td>${monthYear}</td>
+            <td>${formatNumber(reading.meter_last_m3)}</td>
+            <td>${formatNumber(reading.meter_current_m3)}</td>
+            <td class="abstraction-cell">${formatNumber(reading.monthly_abstraction_m3)}</td>
+            <td>${formatNumber(reading.static_water_level_m)}</td>
+            <td>${formatNumber(reading.dynamic_water_level_m)}</td>
+            <td>${formatNumber(reading.pumping_hours)}</td>
+            <td>${esc(reading.notes || '')}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // Calculate and display summary
+    updateReadingsSummary(readings);
+  }
+
+  function updateReadingsSummary(readings) {
+    const count = readings.length;
+    const abstractions = readings
+      .map(r => r.monthly_abstraction_m3)
+      .filter(a => a !== null && a !== undefined && Number.isFinite(a));
+    
+    const totalAbs = abstractions.reduce((sum, val) => sum + val, 0);
+    const avgAbs = abstractions.length > 0 ? totalAbs / abstractions.length : 0;
+
+    const dates = readings
+      .map(r => r.reading_date)
+      .filter(d => d)
+      .sort();
+    
+    const dateRangeText = dates.length > 0 
+      ? dates.length === 1 
+        ? dates[0]
+        : `${dates[0]} to ${dates[dates.length - 1]}`
+      : '-';
+
+    if (totalRecords) totalRecords.textContent = count;
+    if (totalAbstraction) totalAbstraction.textContent = formatNumber(totalAbs);
+    if (avgMonthly) avgMonthly.textContent = formatNumber(avgAbs);
+    if (dateRange) dateRange.textContent = dateRangeText;
+  }
+
+  function showNoReadingsMessage() {
+    if (readingsTable) readingsTable.style.display = 'none';
+    if (readingsSummary) readingsSummary.style.display = 'none';
+    if (noReadingsMessage) noReadingsMessage.style.display = 'block';
+  }
+
+  function clearReadingsFilters() {
+    if (viewReadingsWell) viewReadingsWell.value = '';
+    if (viewReadingsFromDate) viewReadingsFromDate.value = '';
+    if (viewReadingsToDate) viewReadingsToDate.value = '';
+    showNoReadingsMessage();
+    setReadingsStatus('', 'ok');
+  }
+
+  function setReadingsStatus(message, type = 'ok') {
+    if (!readingsStatus) return;
+    readingsStatus.textContent = message;
+    readingsStatus.className = `status-text ${type}`;
+  }
+
+  function formatNumber(value) {
+    if (value === null || value === undefined || value === '') return '-';
+    if (!Number.isFinite(Number(value))) return '-';
+    return Number(value).toLocaleString(undefined, { 
+      minimumFractionDigits: 0, 
+      maximumFractionDigits: 2 
+    });
+  }
+
+  // Event listeners for View Readings
+  if (loadReadingsBtn) {
+    loadReadingsBtn.addEventListener('click', loadMonthlyReadings);
+  }
+
+  if (clearReadingsBtn) {
+    clearReadingsBtn.addEventListener('click', clearReadingsFilters);
+  }
+
+  if (viewReadingsWell) {
+    viewReadingsWell.addEventListener('change', () => {
+      if (viewReadingsWell.value) {
+        loadMonthlyReadings();
+      } else {
+        showNoReadingsMessage();
+      }
+    });
+  }
+
   // Initial load
   (async function init() {
     await loadWellsToDropdowns();
+    await loadWellsForReadingsView(); // Load wells for readings view
     await refreshWells();
   })();
 })();
