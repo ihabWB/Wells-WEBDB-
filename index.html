@@ -396,6 +396,7 @@
             <th>Aquifer</th>
             <th>Type</th>
             <th>Status</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody id="tblWells"></tbody>
@@ -409,6 +410,152 @@
       <p class="hint">Coordinates are stored as EPSG:28191 and converted to WGS84 for display.</p>
     </section>
   </main>
+
+  <!-- Edit Well Modal -->
+  <div id="editWellModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Edit Well</h3>
+        <button type="button" class="modal-close" id="closeEditModal">&times;</button>
+      </div>
+      <form id="formEditWell">
+        <input type="hidden" id="editWellId" name="well_id" />
+        
+        <div class="field">
+          <label>Well Code*</label>
+          <input name="well_code" id="editWellCode" required />
+        </div>
+
+        <div class="field">
+          <label>Well Name</label>
+          <input name="well_name" id="editWellName" />
+        </div>
+
+        <div class="grid-3">
+          <div class="field">
+            <label>Governorate</label>
+            <select name="governorate" id="editGovernorate">
+              <option value="">— Select —</option>
+              <option>Tubas</option>
+              <option>Tulkarm</option>
+              <option>Nablus</option>
+              <option>Qalqiliya</option>
+              <option>Salfit</option>
+              <option>Ramallah &amp; Al-Bireh</option>
+              <option>Jericho &amp; Al Aghwar</option>
+              <option>Jerusalem</option>
+              <option>Bethlehem</option>
+              <option>Hebron</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>District</label>
+            <input name="district" id="editDistrict" />
+          </div>
+          <div class="field">
+            <label>Village</label>
+            <input name="village" id="editVillage" />
+          </div>
+        </div>
+
+        <div class="grid-3">
+          <div class="field">
+            <label>X (EPSG:28191)</label>
+            <input name="x" id="editX" type="number" step="any" />
+          </div>
+          <div class="field">
+            <label>Y (EPSG:28191)</label>
+            <input name="y" id="editY" type="number" step="any" />
+          </div>
+          <div class="field">
+            <label>Z (Elevation)</label>
+            <input name="z" id="editZ" type="number" step="any" />
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="field">
+            <label>Owner / Service Provider</label>
+            <input name="owner_service_provider" id="editOwner" />
+          </div>
+          <div class="field">
+            <label>Aquifer</label>
+            <select name="aquifer" id="editAquifer">
+              <option value="">— Select —</option>
+              <option>Western</option>
+              <option>Eastern</option>
+              <option>North-Eastern</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid-3">
+          <div class="field">
+            <label>Well Type</label>
+            <select name="well_type" id="editWellType">
+              <option value="">—</option>
+              <option>Production</option>
+              <option>Monitoring</option>
+              <option>Agricultural</option>
+              <option>Domestic</option>
+              <option>Industrial</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Drilling Year</label>
+            <input name="drilling_year" id="editDrillingYear" type="number" min="1900" max="2100" />
+          </div>
+          <div class="field">
+            <label>Status</label>
+            <select name="current_status" id="editStatus">
+              <option value="">—</option>
+              <option>Active</option>
+              <option>Inactive</option>
+              <option>Under Repair</option>
+              <option>Abandoned</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid-3">
+          <div class="field">
+            <label>Well Depth (m)</label>
+            <input name="well_depth_m" id="editWellDepth" type="number" step="any" />
+          </div>
+          <div class="field">
+            <label>Casing Depth (m)</label>
+            <input name="casing_depth_m" id="editCasingDepth" type="number" step="any" />
+          </div>
+          <div class="field">
+            <label>Pump Type</label>
+            <input name="pump_type" id="editPumpType" />
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="field">
+            <label>Pump Capacity (m³/hr)</label>
+            <input name="pump_capacity_m3_per_hr" id="editPumpCapacity" type="number" step="any" />
+          </div>
+          <div class="field">
+            <label>Design Capacity (m³/year)</label>
+            <input name="design_capacity_m3_per_year" id="editDesignCapacity" type="number" step="any" />
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Remarks</label>
+          <textarea name="remarks" id="editRemarks"></textarea>
+        </div>
+
+        <div class="modal-actions">
+          <button type="submit" class="btn-primary">Update Well</button>
+          <button type="button" class="btn-secondary" id="cancelEdit">Cancel</button>
+        </div>
+        <div class="msg" id="msgEditWell"></div>
+      </form>
+    </div>
+  </div>
 
   <footer>
     <small>Wells PWA -JWC TEAM • Offline capable • Supabase (PostgreSQL)</small>
