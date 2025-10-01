@@ -477,12 +477,21 @@
   const readingsTableBody = document.getElementById('readingsTableBody');
   const noReadingsMessage = document.getElementById('noReadingsMessage');
   const estimationInfo = document.getElementById('estimationInfo');
+  const dashboardCharts = document.getElementById('dashboardCharts');
 
   // Summary elements
   const totalRecords = document.getElementById('totalRecords');
   const totalAbstraction = document.getElementById('totalAbstraction');
   const avgMonthly = document.getElementById('avgMonthly');
   const dateRange = document.getElementById('dateRange');
+
+  // Chart instances
+  let charts = {
+    timeSeries: null,
+    monthlyPattern: null,
+    waterLevel: null,
+    pumping: null
+  };
 
   async function loadWellsForReadingsView() {
     if (!supabase || !viewReadingsWell) return;
@@ -557,6 +566,7 @@
     // Show table and summary
     if (readingsTable) readingsTable.style.display = 'table';
     if (readingsSummary) readingsSummary.style.display = 'flex';
+    if (dashboardCharts) dashboardCharts.style.display = 'block';
     if (noReadingsMessage) noReadingsMessage.style.display = 'none';
     
     // Show estimation info if any readings are estimated
@@ -592,6 +602,9 @@
 
     // Calculate and display summary
     updateReadingsSummary(processedReadings);
+    
+    // Create charts
+    createDashboardCharts(processedReadings);
   }
 
   function estimateAbstractions(readings) {
@@ -1014,8 +1027,12 @@
   function showNoReadingsMessage() {
     if (readingsTable) readingsTable.style.display = 'none';
     if (readingsSummary) readingsSummary.style.display = 'none';
+    if (dashboardCharts) dashboardCharts.style.display = 'none';
     if (noReadingsMessage) noReadingsMessage.style.display = 'block';
     if (estimationInfo) estimationInfo.style.display = 'none';
+    
+    // Destroy existing charts
+    destroyCharts();
   }
 
   function clearReadingsFilters() {
@@ -1041,6 +1058,324 @@
     });
   }
 
+  // Chart Management Functions
+  function createDashboardCharts(readings) {
+    if (typeof Chart === 'undefined') {
+      console.warn('Chart.js not loaded');
+      return;
+    }
+
+    // Destroy existing charts
+    destroyCharts();
+
+    // Filter valid readings for charts
+    const validReadings = readings.filter(r => r.reading_date);
+    
+    if (validReadings.length === 0) return;
+
+    // Create individual charts
+    createTimeSeriesChart(validReadings);
+    createMonthlyPatternChart(validReadings);
+    createWaterLevelChart(validReadings);
+    createPumpingChart(validReadings);
+  }
+
+  function destroyCharts() {
+    Object.keys(charts).forEach(key => {
+      if (charts[key]) {
+        charts[key].destroy();
+        charts[key] = null;
+      }
+    });
+  }
+
+  function createTimeSeriesChart(readings) {
+    const ctx = document.getElementById('timeSeriesChart');
+    if (!ctx) return;
+
+    const sortedReadings = [...readings].sort((a, b) => new Date(a.reading_date) - new Date(b.reading_date));
+    
+    const labels = sortedReadings.map(r => new Date(r.reading_date).toLocaleDateString());
+    const abstractionData = sortedReadings.map(r => {
+      const value = r.hasEstimation ? r.estimatedValue : r.monthly_abstraction_m3;
+      return value > 0 ? value : null;
+    });
+    const estimatedData = sortedReadings.map(r => r.hasEstimation && r.estimatedValue > 0 ? r.estimatedValue : null);
+
+    charts.timeSeries = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Actual Abstraction (m³)',
+          data: abstractionData,
+          borderColor: '#0e7490',
+          backgroundColor: 'rgba(14, 116, 144, 0.1)',
+          borderWidth: 2,
+          fill: true,
+          tension: 0.3,
+          pointBackgroundColor: '#0e7490',
+          pointBorderColor: '#ffffff',
+          pointBorderWidth: 2,
+          pointRadius: 4
+        }, {
+          label: 'Estimated Values',
+          data: estimatedData,
+          borderColor: '#f59e0b',
+          backgroundColor: 'rgba(245, 158, 11, 0.2)',
+          borderWidth: 2,
+          borderDash: [5, 5],
+          pointBackgroundColor: '#f59e0b',
+          pointBorderColor: '#ffffff',
+          pointBorderWidth: 2,
+          pointRadius: 5,
+          pointStyle: 'triangle'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: {
+            beginAtZero: true,
+            title: {
+              display: true,
+              text: 'Abstraction (m³)'
+            }
+          },
+          x: {
+            title: {
+              display: true,
+              text: 'Reading Date'
+            }
+          }
+        },
+        plugins: {
+          legend: {
+            display: true
+          },
+          tooltip: {
+            mode: 'index',
+            intersect: false
+          }
+        }
+      }
+    });
+  }
+
+  function createMonthlyPatternChart(readings) {
+    const ctx = document.getElementById('monthlyPatternChart');
+    if (!ctx) return;
+
+    // Group readings by month (0-11)
+    const monthlyData = new Array(12).fill(0);
+    const monthlyCounts = new Array(12).fill(0);
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    readings.forEach(r => {
+      const value = r.hasEstimation ? r.estimatedValue : r.monthly_abstraction_m3;
+      if (value > 0) {
+        const month = new Date(r.reading_date).getMonth();
+        monthlyData[month] += value;
+        monthlyCounts[month]++;
+      }
+    });
+
+    // Calculate averages
+    const monthlyAverages = monthlyData.map((total, i) => 
+      monthlyCounts[i] > 0 ? total / monthlyCounts[i] : 0
+    );
+
+    charts.monthlyPattern = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: monthNames,
+        datasets: [{
+          label: 'Average Abstraction (m³)',
+          data: monthlyAverages,
+          backgroundColor: 'rgba(14, 116, 144, 0.7)',
+          borderColor: '#0e7490',
+          borderWidth: 1
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: {
+            beginAtZero: true,
+            title: {
+              display: true,
+              text: 'Average Abstraction (m³)'
+            }
+          }
+        },
+        plugins: {
+          legend: {
+            display: false
+          }
+        }
+      }
+    });
+  }
+
+  function createWaterLevelChart(readings) {
+    const ctx = document.getElementById('waterLevelChart');
+    if (!ctx) return;
+
+    const sortedReadings = [...readings].sort((a, b) => new Date(a.reading_date) - new Date(b.reading_date));
+    const labels = sortedReadings.map(r => new Date(r.reading_date).toLocaleDateString());
+    
+    const staticLevels = sortedReadings.map(r => 
+      r.static_water_level_m !== null && r.static_water_level_m !== undefined ? r.static_water_level_m : null
+    );
+    const dynamicLevels = sortedReadings.map(r => 
+      r.dynamic_water_level_m !== null && r.dynamic_water_level_m !== undefined ? r.dynamic_water_level_m : null
+    );
+
+    // Check if we have any water level data
+    const hasStaticData = staticLevels.some(v => v !== null);
+    const hasDynamicData = dynamicLevels.some(v => v !== null);
+
+    if (!hasStaticData && !hasDynamicData) {
+      // Show message that no water level data is available
+      ctx.getContext('2d').font = '16px Arial';
+      ctx.getContext('2d').fillStyle = '#666';
+      ctx.getContext('2d').textAlign = 'center';
+      ctx.getContext('2d').fillText('No water level data available', ctx.width / 2, ctx.height / 2);
+      return;
+    }
+
+    const datasets = [];
+    
+    if (hasStaticData) {
+      datasets.push({
+        label: 'Static Water Level (m)',
+        data: staticLevels,
+        borderColor: '#10b981',
+        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+        borderWidth: 2,
+        fill: false,
+        tension: 0.3
+      });
+    }
+    
+    if (hasDynamicData) {
+      datasets.push({
+        label: 'Dynamic Water Level (m)',
+        data: dynamicLevels,
+        borderColor: '#ef4444',
+        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+        borderWidth: 2,
+        fill: false,
+        tension: 0.3
+      });
+    }
+
+    charts.waterLevel = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: datasets
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: {
+            title: {
+              display: true,
+              text: 'Water Level (m)'
+            }
+          }
+        },
+        plugins: {
+          legend: {
+            display: true
+          }
+        }
+      }
+    });
+  }
+
+  function createPumpingChart(readings) {
+    const ctx = document.getElementById('pumpingChart');
+    if (!ctx) return;
+
+    // Filter readings that have both pumping hours and abstraction data
+    const validData = readings.filter(r => {
+      const abstraction = r.hasEstimation ? r.estimatedValue : r.monthly_abstraction_m3;
+      return r.pumping_hours !== null && r.pumping_hours !== undefined && 
+             abstraction > 0 && r.pumping_hours > 0;
+    }).map(r => ({
+      x: r.pumping_hours,
+      y: r.hasEstimation ? r.estimatedValue : r.monthly_abstraction_m3,
+      date: r.reading_date
+    }));
+
+    if (validData.length === 0) {
+      // Show message that no pumping data is available
+      ctx.getContext('2d').font = '16px Arial';
+      ctx.getContext('2d').fillStyle = '#666';
+      ctx.getContext('2d').textAlign = 'center';
+      ctx.getContext('2d').fillText('No pumping hours data available', ctx.width / 2, ctx.height / 2);
+      return;
+    }
+
+    charts.pumping = new Chart(ctx, {
+      type: 'scatter',
+      data: {
+        datasets: [{
+          label: 'Pumping Efficiency',
+          data: validData,
+          backgroundColor: 'rgba(14, 116, 144, 0.6)',
+          borderColor: '#0e7490',
+          borderWidth: 1,
+          pointRadius: 6,
+          pointHoverRadius: 8
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: {
+            title: {
+              display: true,
+              text: 'Pumping Hours'
+            }
+          },
+          y: {
+            title: {
+              display: true,
+              text: 'Abstraction (m³)'
+            }
+          }
+        },
+        plugins: {
+          legend: {
+            display: false
+          },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                const point = context.parsed;
+                const dataPoint = validData[context.dataIndex];
+                return [
+                  `Date: ${new Date(dataPoint.date).toLocaleDateString()}`,
+                  `Pumping Hours: ${point.x}`,
+                  `Abstraction: ${point.y.toFixed(2)} m³`,
+                  `Efficiency: ${(point.y / point.x).toFixed(2)} m³/hour`
+                ];
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+
   // Event listeners for View Readings
   if (loadReadingsBtn) {
     loadReadingsBtn.addEventListener('click', loadMonthlyReadings);
@@ -1056,6 +1391,29 @@
         loadMonthlyReadings();
       } else {
         showNoReadingsMessage();
+      }
+    });
+  }
+
+  // Chart control event listeners
+  const toggleChartsBtn = document.getElementById('toggleCharts');
+  const refreshChartsBtn = document.getElementById('refreshCharts');
+
+  if (toggleChartsBtn) {
+    toggleChartsBtn.addEventListener('click', () => {
+      const chartsGrid = document.querySelector('.charts-grid');
+      if (chartsGrid) {
+        const isHidden = chartsGrid.style.display === 'none';
+        chartsGrid.style.display = isHidden ? 'grid' : 'none';
+        toggleChartsBtn.textContent = isHidden ? 'Hide Charts' : 'Show Charts';
+      }
+    });
+  }
+
+  if (refreshChartsBtn) {
+    refreshChartsBtn.addEventListener('click', () => {
+      if (viewReadingsWell && viewReadingsWell.value) {
+        loadMonthlyReadings();
       }
     });
   }
