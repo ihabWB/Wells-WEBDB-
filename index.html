@@ -328,6 +328,21 @@
 
       <!-- Readings Table -->
       <div class="readings-table-container">
+        <!-- Estimation Info Panel -->
+        <div id="estimationInfo" class="estimation-info" style="display: none;">
+          <div class="info-header">
+            <span class="info-icon">🧮</span>
+            <strong>Smart Abstraction Estimation Active</strong>
+          </div>
+          <p>Some readings have negative or missing abstraction values. The system has automatically estimated these using:</p>
+          <ul>
+            <li><strong>Time Series Analysis:</strong> Patterns from valid readings</li>
+            <li><strong>Interpolation:</strong> Between known values</li>
+            <li><strong>Trend Analysis:</strong> Long-term consumption patterns</li>
+          </ul>
+          <p>Estimated values are marked with <span class="estimation-badge">EST</span> and highlighted in blue.</p>
+        </div>
+
         <table id="readingsTable" style="display: none;">
           <thead>
             <tr>
