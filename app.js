@@ -602,25 +602,44 @@
       new Date(a.reading_date) - new Date(b.reading_date)
     );
 
-    // Identify valid abstractions for pattern analysis (exclude zero and negative values)
-    const validAbstractions = [];
-    sortedReadings.forEach((reading, index) => {
-      const abs = reading.monthly_abstraction_m3;
-      if (abs !== null && abs !== undefined && Number.isFinite(abs) && abs > 0) { // Changed from >= 0 to > 0
-        validAbstractions.push({ value: abs, index, date: reading.reading_date });
+    // Calculate normalized monthly rates from irregular readings
+    const monthlyRates = [];
+    for (let i = 1; i < sortedReadings.length; i++) {
+      const current = sortedReadings[i];
+      const previous = sortedReadings[i - 1];
+      
+      const currentAbs = current.monthly_abstraction_m3;
+      const monthsGap = getMonthsDifference(
+        new Date(previous.reading_date),
+        new Date(current.reading_date)
+      );
+      
+      // Only use positive abstractions and valid time gaps
+      if (currentAbs > 0 && monthsGap > 0) {
+        const monthlyRate = currentAbs / monthsGap; // Average per month
+        monthlyRates.push({
+          rate: monthlyRate,
+          totalAbstraction: currentAbs,
+          monthsSpan: monthsGap,
+          index: i,
+          date: current.reading_date,
+          startDate: previous.reading_date,
+          endDate: current.reading_date
+        });
       }
-    });
+    }
 
-    // If we have fewer than 2 valid non-zero values, can't estimate effectively
-    if (validAbstractions.length < 2) {
+    // If we have fewer than 2 valid rates, can't estimate effectively
+    if (monthlyRates.length < 2) {
       return sortedReadings.map(r => ({ ...r, hasEstimation: false }));
     }
 
-    // Calculate statistics from non-zero values only
-    const avgAbstraction = validAbstractions.reduce((sum, v) => sum + v.value, 0) / validAbstractions.length;
-    const medianAbstraction = calculateMedian(validAbstractions.map(v => v.value));
-    const trend = calculateTrend(validAbstractions);
-    const seasonalPattern = analyzeSeasonalPattern(validAbstractions);
+    // Calculate statistics from monthly rates
+    const rates = monthlyRates.map(r => r.rate);
+    const avgMonthlyRate = rates.reduce((sum, r) => sum + r, 0) / rates.length;
+    const medianMonthlyRate = calculateMedian(rates);
+    const seasonalRates = analyzeSeasonalRates(monthlyRates);
+    const trend = calculateRateTrend(monthlyRates);
 
     // Process each reading for estimation
     const processedReadings = sortedReadings.map((reading, index) => {
@@ -631,15 +650,15 @@
         return { ...reading, hasEstimation: false, estimatedValue: null };
       }
 
-      // Estimate the abstraction using enhanced algorithm
-      const estimated = estimateAbstractionValueEnhanced(
+      // Estimate the abstraction using gap-aware algorithm
+      const estimated = estimateAbstractionForGap(
         index, 
         sortedReadings, 
-        validAbstractions, 
-        avgAbstraction, 
-        medianAbstraction,
+        monthlyRates, 
+        avgMonthlyRate, 
+        medianMonthlyRate,
         trend, 
-        seasonalPattern
+        seasonalRates
       );
       
       return {
@@ -651,6 +670,128 @@
     });
 
     return processedReadings;
+  }
+
+  function analyzeSeasonalRates(monthlyRates) {
+    if (monthlyRates.length < 4) return {}; // Need sufficient data
+    
+    const seasonalData = {};
+    
+    monthlyRates.forEach(rate => {
+      const startDate = new Date(rate.startDate);
+      const endDate = new Date(rate.endDate);
+      
+      // Distribute the rate across all months in the span
+      let currentDate = new Date(startDate);
+      currentDate.setMonth(currentDate.getMonth() + 1); // Start from month after start date
+      
+      while (currentDate <= endDate) {
+        const month = currentDate.getMonth();
+        if (!seasonalData[month]) {
+          seasonalData[month] = { rates: [], count: 0 };
+        }
+        seasonalData[month].rates.push(rate.rate);
+        seasonalData[month].count++;
+        currentDate.setMonth(currentDate.getMonth() + 1);
+      }
+    });
+    
+    // Calculate averages for each month
+    const seasonalAverages = {};
+    for (const month in seasonalData) {
+      const rates = seasonalData[month].rates;
+      if (rates.length > 0) {
+        seasonalAverages[month] = rates.reduce((sum, r) => sum + r, 0) / rates.length;
+      }
+    }
+    
+    return seasonalAverages;
+  }
+
+  function calculateRateTrend(monthlyRates) {
+    if (monthlyRates.length < 2) return 0;
+    
+    // Calculate trend based on time progression
+    const n = monthlyRates.length;
+    let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+    
+    monthlyRates.forEach((rate, i) => {
+      sumX += i;
+      sumY += rate.rate;
+      sumXY += i * rate.rate;
+      sumX2 += i * i;
+    });
+    
+    const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+    return isFinite(slope) ? slope : 0;
+  }
+
+  function estimateAbstractionForGap(targetIndex, allReadings, monthlyRates, avgMonthlyRate, medianMonthlyRate, trend, seasonalRates) {
+    const targetReading = allReadings[targetIndex];
+    const targetDate = new Date(targetReading.reading_date);
+    
+    // Find the previous valid reading to calculate the gap
+    let previousReading = null;
+    for (let i = targetIndex - 1; i >= 0; i--) {
+      if (allReadings[i].meter_current_m3 !== null && allReadings[i].meter_current_m3 !== undefined) {
+        previousReading = allReadings[i];
+        break;
+      }
+    }
+    
+    if (!previousReading) {
+      // No previous reading, use seasonal or median rate for 1 month
+      const targetMonth = targetDate.getMonth();
+      const monthlyRate = seasonalRates[targetMonth] || medianMonthlyRate || avgMonthlyRate;
+      return Math.max(0, monthlyRate);
+    }
+    
+    // Calculate months gap between previous reading and target
+    const monthsGap = getMonthsDifference(
+      new Date(previousReading.reading_date),
+      targetDate
+    );
+    
+    if (monthsGap <= 0) {
+      return Math.max(0, medianMonthlyRate || avgMonthlyRate);
+    }
+    
+    // Method 1: Find similar gap patterns in historical data
+    const similarGaps = monthlyRates.filter(rate => 
+      Math.abs(rate.monthsSpan - monthsGap) <= 1 // Allow ±1 month difference
+    );
+    
+    if (similarGaps.length > 0) {
+      const avgRate = similarGaps.reduce((sum, r) => sum + r.rate, 0) / similarGaps.length;
+      return Math.max(0, avgRate * monthsGap); // Total for the gap period
+    }
+    
+    // Method 2: Use seasonal awareness for the target month
+    const targetMonth = targetDate.getMonth();
+    let estimatedRate = seasonalRates[targetMonth] || medianMonthlyRate || avgMonthlyRate;
+    
+    // Apply trend if we have enough data
+    if (monthlyRates.length >= 3) {
+      const timePosition = targetIndex / allReadings.length;
+      estimatedRate += trend * timePosition;
+    }
+    
+    // Return total abstraction for the gap period
+    return Math.max(0, estimatedRate * monthsGap);
+  }
+
+  function getMonthsDifference(date1, date2) {
+    if (!date1 || !date2) return 0;
+    
+    const months = (date2.getFullYear() - date1.getFullYear()) * 12 + 
+                   (date2.getMonth() - date1.getMonth());
+    
+    // Add fractional month based on days
+    const daysInMonth = new Date(date2.getFullYear(), date2.getMonth() + 1, 0).getDate();
+    const daysDiff = date2.getDate() - date1.getDate();
+    const fractionalMonth = daysDiff / daysInMonth;
+    
+    return Math.max(0, months + fractionalMonth);
   }
 
   function calculateMedian(values) {
@@ -775,6 +916,15 @@
     
     const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
     return isFinite(slope) ? slope : 0;
+  }
+
+  function calculateMedian(values) {
+    if (values.length === 0) return 0;
+    const sorted = [...values].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    return sorted.length % 2 === 0 
+      ? (sorted[mid - 1] + sorted[mid]) / 2 
+      : sorted[mid];
   }
 
   function getMonthsDifference(date1, date2) {
