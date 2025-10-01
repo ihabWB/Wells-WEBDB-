@@ -343,14 +343,15 @@ footer{ padding:16px; text-align:center; color:var(--muted); }
 /* Dashboard Charts */
 .dashboard-section {
   margin: 20px 0;
-  background: var(--bg-primary);
+  background: var(--surface);
   border-radius: 12px;
   border: 1px solid var(--border);
   overflow: hidden;
+  box-shadow: var(--shadow);
 }
 
 .dashboard-header {
-  background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
   color: white;
   padding: 15px 20px;
   display: flex;
@@ -385,45 +386,95 @@ footer{ padding:16px; text-align:center; color:var(--muted); }
   border-color: rgba(255, 255, 255, 0.5);
 }
 
-.charts-grid {
+/* Annual Summary Grid */
+.annual-summary-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
   padding: 20px;
 }
 
-.chart-container {
-  background: var(--bg-secondary);
-  border-radius: 8px;
-  padding: 15px;
+.annual-card {
+  background: var(--surface-strong);
   border: 1px solid var(--border);
-  min-height: 300px;
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.annual-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.annual-icon {
+  font-size: 2rem;
+  opacity: 0.8;
+}
+
+.annual-content {
+  flex: 1;
+}
+
+.annual-label {
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-weight: 600;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.annual-value {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--accent);
+  line-height: 1.2;
+}
+
+.annual-sub {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+/* Simple Chart Container */
+.simple-chart-container {
+  background: var(--surface-strong);
+  border-radius: 8px;
+  padding: 20px;
+  margin: 0 20px 20px 20px;
+  border: 1px solid var(--border);
 }
 
 .chart-title {
   font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 10px;
+  color: var(--text);
+  margin-bottom: 16px;
   padding-bottom: 8px;
-  border-bottom: 2px solid var(--primary);
-  font-size: 1rem;
+  border-bottom: 2px solid var(--accent);
+  font-size: 1.1rem;
 }
 
-.chart-container canvas {
+.simple-chart-container canvas {
   max-width: 100%;
   height: auto !important;
 }
 
-/* Responsive charts */
+/* Responsive annual dashboard */
 @media (max-width: 768px) {
-  .charts-grid {
+  .annual-summary-grid {
     grid-template-columns: 1fr;
-    gap: 15px;
-    padding: 15px;
+    gap: 12px;
+    padding: 16px;
   }
   
-  .chart-container {
-    min-height: 250px;
+  .simple-chart-container {
+    margin: 0 16px 16px 16px;
+    padding: 16px;
   }
   
   .dashboard-header {
@@ -434,6 +485,16 @@ footer{ padding:16px; text-align:center; color:var(--muted); }
   
   .chart-controls {
     justify-content: center;
+  }
+  
+  .annual-card {
+    flex-direction: column;
+    text-align: center;
+    gap: 8px;
+  }
+  
+  .annual-icon {
+    font-size: 1.8rem;
   }
 }
 
