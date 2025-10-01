@@ -602,35 +602,45 @@
       new Date(a.reading_date) - new Date(b.reading_date)
     );
 
-    // Identify valid abstractions for pattern analysis
+    // Identify valid abstractions for pattern analysis (exclude zero and negative values)
     const validAbstractions = [];
     sortedReadings.forEach((reading, index) => {
       const abs = reading.monthly_abstraction_m3;
-      if (abs !== null && abs !== undefined && Number.isFinite(abs) && abs >= 0) {
+      if (abs !== null && abs !== undefined && Number.isFinite(abs) && abs > 0) { // Changed from >= 0 to > 0
         validAbstractions.push({ value: abs, index, date: reading.reading_date });
       }
     });
 
-    // If we have fewer than 2 valid values, can't estimate effectively
+    // If we have fewer than 2 valid non-zero values, can't estimate effectively
     if (validAbstractions.length < 2) {
       return sortedReadings.map(r => ({ ...r, hasEstimation: false }));
     }
 
-    // Calculate average monthly abstraction and trend
+    // Calculate statistics from non-zero values only
     const avgAbstraction = validAbstractions.reduce((sum, v) => sum + v.value, 0) / validAbstractions.length;
+    const medianAbstraction = calculateMedian(validAbstractions.map(v => v.value));
     const trend = calculateTrend(validAbstractions);
+    const seasonalPattern = analyzeSeasonalPattern(validAbstractions);
 
     // Process each reading for estimation
     const processedReadings = sortedReadings.map((reading, index) => {
       const abs = reading.monthly_abstraction_m3;
       
-      // If abstraction is valid and positive, keep it
-      if (abs !== null && abs !== undefined && Number.isFinite(abs) && abs >= 0) {
+      // If abstraction is valid and positive (non-zero), keep it
+      if (abs !== null && abs !== undefined && Number.isFinite(abs) && abs > 0) {
         return { ...reading, hasEstimation: false, estimatedValue: null };
       }
 
-      // Estimate the abstraction
-      const estimated = estimateAbstractionValue(index, sortedReadings, validAbstractions, avgAbstraction, trend);
+      // Estimate the abstraction using enhanced algorithm
+      const estimated = estimateAbstractionValueEnhanced(
+        index, 
+        sortedReadings, 
+        validAbstractions, 
+        avgAbstraction, 
+        medianAbstraction,
+        trend, 
+        seasonalPattern
+      );
       
       return {
         ...reading,
@@ -643,10 +653,116 @@
     return processedReadings;
   }
 
+  function calculateMedian(values) {
+    if (values.length === 0) return 0;
+    const sorted = [...values].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    return sorted.length % 2 === 0 
+      ? (sorted[mid - 1] + sorted[mid]) / 2 
+      : sorted[mid];
+  }
+
+  function analyzeSeasonalPattern(validAbstractions) {
+    if (validAbstractions.length < 12) return {}; // Need at least a year of data
+    
+    const monthlyAverages = {};
+    const monthlyCount = {};
+    
+    validAbstractions.forEach(item => {
+      const month = new Date(item.date).getMonth(); // 0-11
+      if (!monthlyAverages[month]) {
+        monthlyAverages[month] = 0;
+        monthlyCount[month] = 0;
+      }
+      monthlyAverages[month] += item.value;
+      monthlyCount[month]++;
+    });
+    
+    // Calculate averages for each month
+    for (const month in monthlyAverages) {
+      monthlyAverages[month] = monthlyAverages[month] / monthlyCount[month];
+    }
+    
+    return monthlyAverages;
+  }
+
+  function estimateAbstractionValueEnhanced(targetIndex, allReadings, validAbstractions, avgAbstraction, medianAbstraction, trend, seasonalPattern) {
+    const targetDate = new Date(allReadings[targetIndex].reading_date);
+    const targetMonth = targetDate.getMonth();
+    
+    // Find nearest valid non-zero values before and after
+    const before = validAbstractions.filter(v => v.index < targetIndex).pop();
+    const after = validAbstractions.find(v => v.index > targetIndex);
+    
+    // Method 1: Seasonal-aware interpolation between nearest values
+    if (before && after) {
+      const beforeDate = new Date(allReadings[before.index].reading_date);
+      const afterDate = new Date(allReadings[after.index].reading_date);
+      const totalDays = (afterDate - beforeDate) / (1000 * 60 * 60 * 24);
+      const targetDays = (targetDate - beforeDate) / (1000 * 60 * 60 * 24);
+      
+      if (totalDays > 0) {
+        const ratio = targetDays / totalDays;
+        let interpolated = before.value + (after.value - before.value) * ratio;
+        
+        // Apply seasonal adjustment if available
+        if (seasonalPattern[targetMonth] && avgAbstraction > 0) {
+          const seasonalFactor = seasonalPattern[targetMonth] / avgAbstraction;
+          interpolated *= seasonalFactor;
+        }
+        
+        return Math.max(0, interpolated);
+      }
+    }
+    
+    // Method 2: Enhanced extrapolation with seasonal awareness
+    if (before) {
+      const monthsDiff = getMonthsDifference(
+        new Date(allReadings[before.index].reading_date),
+        targetDate
+      );
+      
+      let estimated = before.value + (trend * monthsDiff);
+      
+      // Apply seasonal adjustment
+      if (seasonalPattern[targetMonth] && avgAbstraction > 0) {
+        const seasonalFactor = seasonalPattern[targetMonth] / avgAbstraction;
+        estimated = (estimated * 0.7) + (seasonalPattern[targetMonth] * 0.3); // Weighted combination
+      }
+      
+      return Math.max(0, estimated);
+    }
+    
+    if (after) {
+      const monthsDiff = getMonthsDifference(
+        targetDate,
+        new Date(allReadings[after.index].reading_date)
+      );
+      
+      let estimated = after.value - (trend * monthsDiff);
+      
+      // Apply seasonal adjustment
+      if (seasonalPattern[targetMonth] && avgAbstraction > 0) {
+        const seasonalFactor = seasonalPattern[targetMonth] / avgAbstraction;
+        estimated = (estimated * 0.7) + (seasonalPattern[targetMonth] * 0.3);
+      }
+      
+      return Math.max(0, estimated);
+    }
+    
+    // Method 3: Seasonal or median fallback (prefer median over average for robustness)
+    if (seasonalPattern[targetMonth]) {
+      return Math.max(0, seasonalPattern[targetMonth]);
+    }
+    
+    // Use median as it's more robust against outliers than average
+    return Math.max(0, medianAbstraction || avgAbstraction);
+  }
+
   function calculateTrend(validAbstractions) {
     if (validAbstractions.length < 2) return 0;
     
-    // Simple linear trend calculation
+    // Simple linear trend calculation using non-zero values only
     const n = validAbstractions.length;
     let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
     
@@ -659,50 +775,6 @@
     
     const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
     return isFinite(slope) ? slope : 0;
-  }
-
-  function estimateAbstractionValue(targetIndex, allReadings, validAbstractions, avgAbstraction, trend) {
-    const targetDate = new Date(allReadings[targetIndex].reading_date);
-    
-    // Find nearest valid values before and after
-    const before = validAbstractions.filter(v => v.index < targetIndex).pop();
-    const after = validAbstractions.find(v => v.index > targetIndex);
-    
-    // Method 1: Interpolation between nearest values
-    if (before && after) {
-      const beforeDate = new Date(allReadings[before.index].reading_date);
-      const afterDate = new Date(allReadings[after.index].reading_date);
-      const totalDays = (afterDate - beforeDate) / (1000 * 60 * 60 * 24);
-      const targetDays = (targetDate - beforeDate) / (1000 * 60 * 60 * 24);
-      
-      if (totalDays > 0) {
-        const ratio = targetDays / totalDays;
-        const interpolated = before.value + (after.value - before.value) * ratio;
-        return Math.max(0, interpolated); // Ensure non-negative
-      }
-    }
-    
-    // Method 2: Extrapolation from nearest value with trend
-    if (before) {
-      const monthsDiff = getMonthsDifference(
-        new Date(allReadings[before.index].reading_date),
-        targetDate
-      );
-      const estimated = before.value + (trend * monthsDiff);
-      return Math.max(0, estimated);
-    }
-    
-    if (after) {
-      const monthsDiff = getMonthsDifference(
-        targetDate,
-        new Date(allReadings[after.index].reading_date)
-      );
-      const estimated = after.value - (trend * monthsDiff);
-      return Math.max(0, estimated);
-    }
-    
-    // Method 3: Use average as fallback
-    return Math.max(0, avgAbstraction);
   }
 
   function getMonthsDifference(date1, date2) {
@@ -734,13 +806,14 @@
     const count = readings.length;
     const estimatedCount = readings.filter(r => r.hasEstimation).length;
     
-    // Get abstraction values (use estimated values where available)
+    // Get abstraction values (use estimated values where available, exclude zeros)
     const abstractions = readings
       .map(r => r.hasEstimation ? r.estimatedValue : r.monthly_abstraction_m3)
-      .filter(a => a !== null && a !== undefined && Number.isFinite(a) && a >= 0);
+      .filter(a => a !== null && a !== undefined && Number.isFinite(a) && a > 0); // Changed from >= 0 to > 0
     
     const totalAbs = abstractions.reduce((sum, val) => sum + val, 0);
     const avgAbs = abstractions.length > 0 ? totalAbs / abstractions.length : 0;
+    const validReadingsCount = abstractions.length;
 
     const dates = readings
       .map(r => r.reading_date)
@@ -753,14 +826,19 @@
         : `${dates[0]} to ${dates[dates.length - 1]}`
       : '-';
 
-    // Update summary with estimation info
+    // Update summary with estimation info and valid readings count
     if (totalRecords) {
-      totalRecords.innerHTML = estimatedCount > 0 
-        ? `${count} <small>(${estimatedCount} estimated)</small>`
-        : count;
+      const recordsText = estimatedCount > 0 
+        ? `${count} total (${estimatedCount} estimated, ${validReadingsCount} with pumping)`
+        : `${count} total (${validReadingsCount} with pumping)`;
+      totalRecords.innerHTML = `<span title="Total readings / Estimated readings / Readings with actual pumping">${recordsText}</span>`;
     }
-    if (totalAbstraction) totalAbstraction.textContent = formatNumber(totalAbs);
-    if (avgMonthly) avgMonthly.textContent = formatNumber(avgAbs);
+    if (totalAbstraction) {
+      totalAbstraction.innerHTML = `<span title="Total abstraction excluding zero values">${formatNumber(totalAbs)}</span>`;
+    }
+    if (avgMonthly) {
+      avgMonthly.innerHTML = `<span title="Average monthly abstraction excluding zero values">${formatNumber(avgAbs)}</span>`;
+    }
     if (dateRange) dateRange.textContent = dateRangeText;
   }
 
