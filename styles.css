@@ -339,6 +339,120 @@ footer{ padding:16px; text-align:center; color:var(--muted); }
   color: var(--text);
 }
 
+/* ========= View Readings Styles ========= */
+.readings-controls {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow);
+}
+
+.readings-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.status-text {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.status-text.ok {
+  color: var(--ok);
+}
+
+.status-text.err {
+  color: var(--err);
+}
+
+.status-text.info {
+  color: var(--accent);
+}
+
+.summary-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.summary-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  box-shadow: var(--shadow);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.summary-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+}
+
+.summary-label {
+  font-size: 0.85rem;
+  color: var(--muted);
+  font-weight: 600;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.summary-value {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: var(--accent);
+  line-height: 1.2;
+}
+
+.readings-table-container {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+
+.abstraction-cell {
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.no-data-message {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--muted);
+}
+
+.no-data-icon {
+  font-size: 3rem;
+  margin-bottom: 16px;
+  opacity: 0.7;
+}
+
+.no-data-message h3 {
+  margin: 0 0 12px 0;
+  color: var(--text);
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+.no-data-message p {
+  margin: 0;
+  max-width: 400px;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+
 /* ========= Accessibility ========= */
 :focus-visible{ outline: 2px solid #37c2ff; outline-offset: 2px; }
 
