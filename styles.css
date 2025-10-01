@@ -441,27 +441,30 @@ footer{ padding:16px; text-align:center; color:var(--muted); }
   margin-top: 2px;
 }
 
-/* Simple Chart Container */
-.simple-chart-container {
+/* Compact Chart Container */
+.compact-chart-container {
   background: var(--surface-strong);
   border-radius: 8px;
-  padding: 20px;
+  padding: 16px;
   margin: 0 20px 20px 20px;
   border: 1px solid var(--border);
+  max-height: 240px;
 }
 
 .chart-title {
   font-weight: 600;
   color: var(--text);
-  margin-bottom: 16px;
-  padding-bottom: 8px;
-  border-bottom: 2px solid var(--accent);
-  font-size: 1.1rem;
+  margin-bottom: 12px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--accent);
+  font-size: 0.95rem;
+  text-align: center;
 }
 
-.simple-chart-container canvas {
+.compact-chart-container canvas {
   max-width: 100%;
   height: auto !important;
+  max-height: 160px;
 }
 
 /* Responsive annual dashboard */
@@ -472,9 +475,14 @@ footer{ padding:16px; text-align:center; color:var(--muted); }
     padding: 16px;
   }
   
-  .simple-chart-container {
+  .compact-chart-container {
     margin: 0 16px 16px 16px;
-    padding: 16px;
+    padding: 12px;
+    max-height: 200px;
+  }
+  
+  .compact-chart-container canvas {
+    max-height: 120px;
   }
   
   .dashboard-header {
