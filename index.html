@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Wells-0013 Database- (PWA)</title>
+  <title>Wells- Database- (PWA)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#0e7490" />
@@ -412,6 +412,7 @@
               <th>Dynamic WL (m)</th>
               <th>Pumping Hours</th>
               <th>Notes</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody id="readingsTableBody">
@@ -702,6 +703,73 @@
           <button type="button" class="btn-secondary" id="cancelEdit">Cancel</button>
         </div>
         <div class="msg" id="msgEditWell"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Edit Reading Modal -->
+  <div id="editReadingModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Edit Reading</h3>
+        <button type="button" class="modal-close" id="closeEditReadingModal">&times;</button>
+      </div>
+      <form id="formEditReading">
+        <input type="hidden" id="editReadingId" name="reading_id" />
+        
+        <div class="field">
+          <label>Well*</label>
+          <select id="editReadingWell" name="well_id" required disabled>
+            <option value="">— Select Well —</option>
+          </select>
+          <p class="hint">Well cannot be changed for existing readings</p>
+        </div>
+        
+        <div class="grid-3">
+          <div class="field">
+            <label>Reading Date*</label>
+            <input name="reading_date" id="editReadingDate" type="date" required />
+          </div>
+          <div class="field">
+            <label>Meter Last (m³)*</label>
+            <input name="meter_last_m3" id="editMeterLast" type="number" step="any" required />
+          </div>
+          <div class="field">
+            <label>Meter Current (m³)*</label>
+            <input name="meter_current_m3" id="editMeterCurrent" type="number" step="any" required />
+          </div>
+        </div>
+        
+        <div class="grid-3">
+          <div class="field">
+            <label>Static Water Level (m)</label>
+            <input name="static_water_level_m" id="editStaticWL" type="number" step="any" />
+          </div>
+          <div class="field">
+            <label>Dynamic Water Level (m)</label>
+            <input name="dynamic_water_level_m" id="editDynamicWL" type="number" step="any" />
+          </div>
+          <div class="field">
+            <label>Pumping Hours</label>
+            <input name="pumping_hours" id="editPumpingHours" type="number" step="any" />
+          </div>
+        </div>
+        
+        <div class="field">
+          <label>Notes</label>
+          <textarea name="notes" id="editReadingNotes"></textarea>
+        </div>
+        
+        <div class="field">
+          <label>Monthly Abstraction (auto-calculated)</label>
+          <input id="editComputedAbstraction" disabled />
+        </div>
+
+        <div class="modal-actions">
+          <button type="submit" class="btn-primary">Update Reading</button>
+          <button type="button" class="btn-secondary" id="cancelEditReading">Cancel</button>
+        </div>
+        <div class="msg" id="msgEditReading"></div>
       </form>
     </div>
   </div>
