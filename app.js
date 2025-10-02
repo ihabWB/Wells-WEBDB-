@@ -479,6 +479,14 @@
   const estimationInfo = document.getElementById('estimationInfo');
   const dashboardCharts = document.getElementById('dashboardCharts');
 
+  // Edit Reading modal elements
+  const editReadingModal = document.getElementById('editReadingModal');
+  const formEditReading = document.getElementById('formEditReading');
+  const msgEditReading = document.getElementById('msgEditReading');
+  const closeEditReadingModal = document.getElementById('closeEditReadingModal');
+  const cancelEditReading = document.getElementById('cancelEditReading');
+  const editComputedAbstraction = document.getElementById('editComputedAbstraction');
+
   // Summary elements
   const totalRecords = document.getElementById('totalRecords');
   const totalAbstraction = document.getElementById('totalAbstraction');
@@ -592,6 +600,7 @@
             <td>${formatNumber(reading.dynamic_water_level_m)}</td>
             <td>${formatNumber(reading.pumping_hours)}</td>
             <td>${esc(reading.notes || '')}</td>
+            <td><button type="button" class="btn-edit" onclick="openEditReadingModal('${reading.reading_id}')">Edit</button></td>
           </tr>
         `;
       }).join('');
@@ -1270,7 +1279,159 @@
     });
   }
 
-  // Event listeners for View Readings
+  // Edit Reading Modal functionality
+  window.openEditReadingModal = async function(readingId) {
+    if (!supabase || !readingId) return;
+    
+    // Fetch reading data
+    const { data, error } = await supabase
+      .from('monthly_readings')
+      .select(`
+        *,
+        wells!inner(well_code, well_name)
+      `)
+      .eq('reading_id', readingId)
+      .single();
+    
+    if (error) {
+      console.warn('Error loading reading for edit:', error.message);
+      return;
+    }
+    
+    if (!data) {
+      console.warn('Reading not found');
+      return;
+    }
+    
+    // Load wells for the dropdown (but it will be disabled)
+    await loadWellsForEditReading();
+    
+    // Populate form fields
+    document.getElementById('editReadingId').value = data.reading_id;
+    document.getElementById('editReadingWell').value = data.well_id;
+    document.getElementById('editReadingDate').value = data.reading_date || '';
+    document.getElementById('editMeterLast').value = data.meter_last_m3 || '';
+    document.getElementById('editMeterCurrent').value = data.meter_current_m3 || '';
+    document.getElementById('editStaticWL').value = data.static_water_level_m || '';
+    document.getElementById('editDynamicWL').value = data.dynamic_water_level_m || '';
+    document.getElementById('editPumpingHours').value = data.pumping_hours || '';
+    document.getElementById('editReadingNotes').value = data.notes || '';
+    
+    // Calculate and show abstraction
+    updateEditReadingAbstraction();
+    
+    // Show modal
+    if (editReadingModal) {
+      editReadingModal.style.display = 'block';
+      setMsg(msgEditReading, '', 'ok'); // Clear any previous messages
+    }
+  }
+
+  async function loadWellsForEditReading() {
+    if (!supabase) return;
+    const { data, error } = await supabase
+      .from('wells')
+      .select('well_id, well_code, well_name')
+      .order('well_code', { ascending: true })
+      .limit(1000);
+    if (error) {
+      console.warn('Load wells for edit reading error:', error.message);
+      return;
+    }
+    const options = (data || []).map(w =>
+      `<option value="${w.well_id}">${esc(w.well_code)}${w.well_name ? ' - ' + esc(w.well_name) : ''}</option>`
+    ).join('');
+    const editReadingWell = document.getElementById('editReadingWell');
+    if (editReadingWell) {
+      editReadingWell.innerHTML = `<option value="">— Select Well —</option>` + options;
+    }
+  }
+
+  function updateEditReadingAbstraction() {
+    const meterLast = document.getElementById('editMeterLast');
+    const meterCurrent = document.getElementById('editMeterCurrent');
+    const computedField = document.getElementById('editComputedAbstraction');
+    
+    if (meterLast && meterCurrent && computedField) {
+      const a = parseFloat(meterLast.value || '0');
+      const b = parseFloat(meterCurrent.value || '0');
+      const diff = b - a;
+      computedField.value = Number.isFinite(diff) ? diff : '';
+    }
+  }
+  
+  function closeEditReadingModalFunc() {
+    if (editReadingModal) {
+      editReadingModal.style.display = 'none';
+    }
+    if (formEditReading) {
+      formEditReading.reset();
+    }
+  }
+  
+  // Modal event listeners for Edit Reading
+  if (closeEditReadingModal) {
+    closeEditReadingModal.addEventListener('click', closeEditReadingModalFunc);
+  }
+  if (cancelEditReading) {
+    cancelEditReading.addEventListener('click', closeEditReadingModalFunc);
+  }
+  
+  // Close modal when clicking outside
+  if (editReadingModal) {
+    editReadingModal.addEventListener('click', (e) => {
+      if (e.target === editReadingModal) {
+        closeEditReadingModalFunc();
+      }
+    });
+  }
+
+  // Reading abstraction preview in edit modal
+  if (formEditReading && editComputedAbstraction) {
+    formEditReading.addEventListener('input', updateEditReadingAbstraction);
+  }
+  
+  // Edit Reading form submit handler
+  if (formEditReading) {
+    formEditReading.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const readingId = document.getElementById('editReadingId').value;
+      if (!readingId) {
+        setMsg(msgEditReading, 'No reading selected for editing.', 'err');
+        return;
+      }
+      
+      const payload = getFormPayload(formEditReading, [
+        'well_id','reading_date','meter_last_m3','meter_current_m3',
+        'static_water_level_m','dynamic_water_level_m','pumping_hours','notes'
+      ], ['meter_last_m3','meter_current_m3','static_water_level_m','dynamic_water_level_m','pumping_hours']);
+
+      if (!payload.well_id) return setMsg(msgEditReading, 'Well is required.', 'err');
+      if (!payload.reading_date) return setMsg(msgEditReading, 'Reading Date is required.', 'err');
+      if (payload.meter_current_m3 < payload.meter_last_m3) {
+        return setMsg(msgEditReading, 'Meter Current must be >= Meter Last.', 'err');
+      }
+
+      const { error } = await supabase
+        .from('monthly_readings')
+        .update(payload)
+        .eq('reading_id', readingId);
+        
+      if (error) {
+        setMsg(msgEditReading, error.message || 'Error updating reading.', 'err');
+      } else {
+        setMsg(msgEditReading, 'Reading updated successfully.', 'ok');
+        setTimeout(() => {
+          closeEditReadingModalFunc();
+          // Refresh the readings view
+          if (viewReadingsWell && viewReadingsWell.value) {
+            loadMonthlyReadings();
+          }
+        }, 1500);
+      }
+    });
+  }
   if (loadReadingsBtn) {
     loadReadingsBtn.addEventListener('click', loadMonthlyReadings);
   }
