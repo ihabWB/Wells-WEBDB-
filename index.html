@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Wells--Database-- (PWA)</title>
+  <title>Wells-0013 Database- (PWA)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#0e7490" />
@@ -303,6 +303,7 @@
         <div class="readings-actions">
           <button type="button" id="loadReadingsBtn">Load Readings</button>
           <button type="button" id="clearReadingsBtn" class="btn-secondary">Clear Filters</button>
+          <button type="button" id="exportReadingsBtn" class="btn-export" style="display: none;">📥 Export Readings</button>
           <span id="readingsStatus" class="status-text"></span>
         </div>
       </div>
@@ -536,6 +537,8 @@
       <div class="filters">
         <input id="filterText" placeholder="Search by code or name" />
         <button id="btnRefresh">Refresh</button>
+        <button id="exportWellsBtn" class="btn-export">📥 Export Wells</button>
+        <button id="exportAllReadingsBtn" class="btn-export">📥 Export All Readings</button>
       </div>
       <table>
         <thead>
