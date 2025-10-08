@@ -216,10 +216,28 @@ footer{ padding:16px; text-align:center; color:var(--muted); }
   font-size: 0.85rem;
   font-weight: 600;
   transition: all 0.2s ease;
+  margin-right: 6px;
 }
 
 .btn-edit:hover {
   background: var(--accent2);
+  transform: translateY(-1px);
+}
+
+.btn-delete {
+  background: var(--err);
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.btn-delete:hover {
+  background: #dc2626;
   transform: translateY(-1px);
 }
 
