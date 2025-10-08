@@ -471,6 +471,9 @@
   const viewReadingsToDate = document.getElementById('viewReadingsToDate');
   const loadReadingsBtn = document.getElementById('loadReadingsBtn');
   const clearReadingsBtn = document.getElementById('clearReadingsBtn');
+  const exportReadingsBtn = document.getElementById('exportReadingsBtn');
+  const exportWellsBtn = document.getElementById('exportWellsBtn');
+  const exportAllReadingsBtn = document.getElementById('exportAllReadingsBtn');
   const readingsStatus = document.getElementById('readingsStatus');
   const readingsSummary = document.getElementById('readingsSummary');
   const readingsTable = document.getElementById('readingsTable');
@@ -572,6 +575,7 @@
     if (readingsTable) readingsTable.style.display = 'table';
     if (readingsSummary) readingsSummary.style.display = 'flex';
     if (dashboardCharts) dashboardCharts.style.display = 'block';
+    if (exportReadingsBtn) exportReadingsBtn.style.display = 'inline-block';
     if (noReadingsMessage) noReadingsMessage.style.display = 'none';
     
     // Show estimation info if any readings are estimated
@@ -1037,6 +1041,7 @@
     if (readingsTable) readingsTable.style.display = 'none';
     if (readingsSummary) readingsSummary.style.display = 'none';
     if (dashboardCharts) dashboardCharts.style.display = 'none';
+    if (exportReadingsBtn) exportReadingsBtn.style.display = 'none';
     if (noReadingsMessage) noReadingsMessage.style.display = 'block';
     if (estimationInfo) estimationInfo.style.display = 'none';
     
@@ -1478,12 +1483,255 @@
     }
   }
 
+  // Export functionality
+  function exportToCSV(data, filename) {
+    if (!data || data.length === 0) {
+      alert('No data to export');
+      return;
+    }
+
+    // Get headers from the first object
+    const headers = Object.keys(data[0]);
+    
+    // Create CSV content
+    let csvContent = headers.join(',') + '\n';
+    
+    data.forEach(row => {
+      const values = headers.map(header => {
+        let value = row[header];
+        // Handle null/undefined values
+        if (value === null || value === undefined) {
+          value = '';
+        }
+        // Escape commas and quotes in values
+        if (typeof value === 'string' && (value.includes(',') || value.includes('"'))) {
+          value = '"' + value.replace(/"/g, '""') + '"';
+        }
+        return value;
+      });
+      csvContent += values.join(',') + '\n';
+    });
+
+    // Create and download file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  // Export current readings
+  async function exportCurrentReadings() {
+    if (!supabase || !viewReadingsWell || !viewReadingsWell.value) {
+      alert('Please select a well and load readings first');
+      return;
+    }
+
+    try {
+      setReadingsStatus('Exporting readings...', 'info');
+
+      // Get the well info for filename
+      const { data: wellData } = await supabase
+        .from('wells')
+        .select('well_code, well_name')
+        .eq('well_id', viewReadingsWell.value)
+        .single();
+
+      const wellCode = wellData?.well_code || 'Unknown';
+      const fromDate = viewReadingsFromDate?.value || 'all';
+      const toDate = viewReadingsToDate?.value || 'all';
+
+      // Build query
+      let query = supabase
+        .from('monthly_readings')
+        .select(`
+          reading_date,
+          meter_last_m3,
+          meter_current_m3,
+          monthly_abstraction_m3,
+          static_water_level_m,
+          dynamic_water_level_m,
+          pumping_hours,
+          notes,
+          wells!inner(well_code, well_name)
+        `)
+        .eq('well_id', viewReadingsWell.value)
+        .order('reading_date', { ascending: false });
+
+      if (fromDate && fromDate !== 'all') {
+        query = query.gte('reading_date', fromDate);
+      }
+      if (toDate && toDate !== 'all') {
+        query = query.lte('reading_date', toDate);
+      }
+
+      const { data, error } = await query.limit(1000);
+
+      if (error) throw error;
+
+      if (!data || data.length === 0) {
+        setReadingsStatus('No readings to export', 'warn');
+        return;
+      }
+
+      // Format data for export
+      const exportData = data.map(reading => ({
+        'Well Code': reading.wells.well_code,
+        'Well Name': reading.wells.well_name || '',
+        'Reading Date': reading.reading_date,
+        'Meter Last (m³)': reading.meter_last_m3,
+        'Meter Current (m³)': reading.meter_current_m3,
+        'Monthly Abstraction (m³)': reading.monthly_abstraction_m3,
+        'Static Water Level (m)': reading.static_water_level_m,
+        'Dynamic Water Level (m)': reading.dynamic_water_level_m,
+        'Pumping Hours': reading.pumping_hours,
+        'Notes': reading.notes || ''
+      }));
+
+      const filename = `readings_${wellCode}_${new Date().toISOString().split('T')[0]}.csv`;
+      exportToCSV(exportData, filename);
+      setReadingsStatus(`Exported ${data.length} readings successfully`, 'ok');
+
+    } catch (error) {
+      console.error('Export readings error:', error);
+      setReadingsStatus(`Export error: ${error.message}`, 'err');
+    }
+  }
+
+  // Export all wells data
+  async function exportWells() {
+    if (!supabase) {
+      alert('Database not available');
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('wells')
+        .select('*')
+        .order('well_code', { ascending: true })
+        .limit(2000);
+
+      if (error) throw error;
+
+      if (!data || data.length === 0) {
+        alert('No wells to export');
+        return;
+      }
+
+      // Format data for export
+      const exportData = data.map(well => ({
+        'Well Code': well.well_code,
+        'Well Name': well.well_name || '',
+        'Governorate': well.governorate || '',
+        'District': well.district || '',
+        'Village': well.village || '',
+        'X (EPSG:28191)': well.x,
+        'Y (EPSG:28191)': well.y,
+        'Z (Elevation)': well.z,
+        'Owner/Service Provider': well.owner_service_provider || '',
+        'Aquifer': well.aquifer || '',
+        'Well Type': well.well_type || '',
+        'Drilling Year': well.drilling_year,
+        'Current Status': well.current_status || '',
+        'Well Depth (m)': well.well_depth_m,
+        'Casing Depth (m)': well.casing_depth_m,
+        'Pump Type': well.pump_type || '',
+        'Pump Capacity (m³/hr)': well.pump_capacity_m3_per_hr,
+        'Design Capacity (m³/year)': well.design_capacity_m3_per_year,
+        'Remarks': well.remarks || ''
+      }));
+
+      const filename = `wells_database_${new Date().toISOString().split('T')[0]}.csv`;
+      exportToCSV(exportData, filename);
+      alert(`Successfully exported ${data.length} wells`);
+
+    } catch (error) {
+      console.error('Export wells error:', error);
+      alert(`Export error: ${error.message}`);
+    }
+  }
+
+  // Export all readings for all wells
+  async function exportAllReadings() {
+    if (!supabase) {
+      alert('Database not available');
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('monthly_readings')
+        .select(`
+          reading_date,
+          meter_last_m3,
+          meter_current_m3,
+          monthly_abstraction_m3,
+          static_water_level_m,
+          dynamic_water_level_m,
+          pumping_hours,
+          notes,
+          wells!inner(well_code, well_name, governorate, district, village)
+        `)
+        .order('reading_date', { ascending: false })
+        .limit(5000);
+
+      if (error) throw error;
+
+      if (!data || data.length === 0) {
+        alert('No readings to export');
+        return;
+      }
+
+      // Format data for export
+      const exportData = data.map(reading => ({
+        'Well Code': reading.wells.well_code,
+        'Well Name': reading.wells.well_name || '',
+        'Governorate': reading.wells.governorate || '',
+        'District': reading.wells.district || '',
+        'Village': reading.wells.village || '',
+        'Reading Date': reading.reading_date,
+        'Meter Last (m³)': reading.meter_last_m3,
+        'Meter Current (m³)': reading.meter_current_m3,
+        'Monthly Abstraction (m³)': reading.monthly_abstraction_m3,
+        'Static Water Level (m)': reading.static_water_level_m,
+        'Dynamic Water Level (m)': reading.dynamic_water_level_m,
+        'Pumping Hours': reading.pumping_hours,
+        'Notes': reading.notes || ''
+      }));
+
+      const filename = `all_readings_${new Date().toISOString().split('T')[0]}.csv`;
+      exportToCSV(exportData, filename);
+      alert(`Successfully exported ${data.length} readings from all wells`);
+
+    } catch (error) {
+      console.error('Export all readings error:', error);
+      alert(`Export error: ${error.message}`);
+    }
+  }
+
   if (loadReadingsBtn) {
     loadReadingsBtn.addEventListener('click', loadMonthlyReadings);
   }
 
   if (clearReadingsBtn) {
     clearReadingsBtn.addEventListener('click', clearReadingsFilters);
+  }
+
+  if (exportReadingsBtn) {
+    exportReadingsBtn.addEventListener('click', exportCurrentReadings);
+  }
+
+  if (exportWellsBtn) {
+    exportWellsBtn.addEventListener('click', exportWells);
+  }
+
+  if (exportAllReadingsBtn) {
+    exportAllReadingsBtn.addEventListener('click', exportAllReadings);
   }
 
   if (viewReadingsWell) {
