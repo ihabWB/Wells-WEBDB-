@@ -600,7 +600,10 @@
             <td>${formatNumber(reading.dynamic_water_level_m)}</td>
             <td>${formatNumber(reading.pumping_hours)}</td>
             <td>${esc(reading.notes || '')}</td>
-            <td><button type="button" class="btn-edit" onclick="openEditReadingModal('${reading.reading_id}')">Edit</button></td>
+            <td>
+              <button type="button" class="btn-edit" onclick="openEditReadingModal('${reading.reading_id}')">Edit</button>
+              <button type="button" class="btn-delete" onclick="deleteReading('${reading.reading_id}', '${reading.reading_date}')">Delete</button>
+            </td>
           </tr>
         `;
       }).join('');
@@ -1432,6 +1435,49 @@
       }
     });
   }
+
+  // Delete Reading functionality
+  window.deleteReading = async function(readingId, readingDate) {
+    if (!supabase || !readingId) return;
+    
+    // Confirm deletion with user
+    const formattedDate = new Date(readingDate).toLocaleDateString();
+    const confirmMessage = `Are you sure you want to delete the reading from ${formattedDate}?\n\nThis action cannot be undone.`;
+    
+    if (!confirm(confirmMessage)) {
+      return; // User cancelled
+    }
+    
+    try {
+      // Set status to show deletion in progress
+      setReadingsStatus('Deleting reading...', 'info');
+      
+      const { error } = await supabase
+        .from('monthly_readings')
+        .delete()
+        .eq('reading_id', readingId);
+      
+      if (error) {
+        setReadingsStatus(`Error deleting reading: ${error.message}`, 'err');
+        console.error('Delete reading error:', error);
+        return;
+      }
+      
+      setReadingsStatus('Reading deleted successfully.', 'ok');
+      
+      // Refresh the readings view after successful deletion
+      setTimeout(() => {
+        if (viewReadingsWell && viewReadingsWell.value) {
+          loadMonthlyReadings();
+        }
+      }, 1000);
+      
+    } catch (error) {
+      console.error('Delete reading error:', error);
+      setReadingsStatus(`Error deleting reading: ${error.message}`, 'err');
+    }
+  }
+
   if (loadReadingsBtn) {
     loadReadingsBtn.addEventListener('click', loadMonthlyReadings);
   }
