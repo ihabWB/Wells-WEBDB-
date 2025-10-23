@@ -715,51 +715,131 @@
     if (hasEstimations || hasOutliers) {
       estimationInfo.style.display = 'block';
       
-      // Update the info content with advanced details
-      const infoContent = estimationInfo.querySelector('.info-content') || 
-        estimationInfo.appendChild(document.createElement('div'));
-      infoContent.className = 'info-content';
-      
-      infoContent.innerHTML = `
-        <div class="estimation-stats">
-          <h4>📊 تقرير جودة البيانات</h4>
-          <div class="stats-grid">
-            <div class="stat-item">
-              <span class="stat-label">إجمالي القراءات:</span>
-              <span class="stat-value">${report.totalReadings}</span>
+      // Update the quick stats content
+      const statsGrid = estimationInfo.querySelector('.stats-grid');
+      if (statsGrid) {
+        statsGrid.innerHTML = `
+          <div class="stat-card primary">
+            <div class="stat-icon">📊</div>
+            <div class="stat-content">
+              <div class="stat-value">${report.totalReadings}</div>
+              <div class="stat-label">إجمالي القراءات</div>
             </div>
-            <div class="stat-item">
-              <span class="stat-label">القراءات المقدرة:</span>
-              <span class="stat-value">${report.estimatedCount} (${report.estimationPercentage}%)</span>
+          </div>
+          
+          <div class="stat-card ${getEstimationStatusClass(report.estimationPercentage)}">
+            <div class="stat-icon">🤖</div>
+            <div class="stat-content">
+              <div class="stat-value">${report.estimatedCount}</div>
+              <div class="stat-label">قراءات مقدرة (${report.estimationPercentage}%)</div>
             </div>
-            <div class="stat-item">
-              <span class="stat-label">متوسط الثقة:</span>
-              <span class="stat-value">${report.averageConfidence}%</span>
+          </div>
+          
+          <div class="stat-card ${getConfidenceStatusClass(report.averageConfidence)}">
+            <div class="stat-icon">🎯</div>
+            <div class="stat-content">
+              <div class="stat-value">${report.averageConfidence}%</div>
+              <div class="stat-label">متوسط الثقة</div>
             </div>
-            <div class="stat-item">
-              <span class="stat-label">جودة البيانات:</span>
-              <span class="stat-value quality-${report.dataQuality}">${report.dataQuality}</span>
+          </div>
+          
+          <div class="stat-card ${getQualityStatusClass(report.dataQuality)}">
+            <div class="stat-icon">⭐</div>
+            <div class="stat-content">
+              <div class="stat-value">${report.dataQuality}</div>
+              <div class="stat-label">تقييم الجودة</div>
             </div>
           </div>
           
           ${hasOutliers ? `
-            <div class="outliers-warning">
-              ⚠️ تم اكتشاف قراءات شاذة - مميزة باللون الأحمر
+            <div class="stat-card warning">
+              <div class="stat-icon">⚠️</div>
+              <div class="stat-content">
+                <div class="stat-value">${processedReadings.filter(r => r.isOutlier).length}</div>
+                <div class="stat-label">قراءات شاذة</div>
+              </div>
             </div>
           ` : ''}
           
           ${report.recommendations.length > 0 ? `
-            <div class="recommendations">
-              <h5>🔧 توصيات التحسين:</h5>
-              <ul>
-                ${report.recommendations.map(rec => `<li>${rec}</li>`).join('')}
-              </ul>
+            <div class="stat-card info">
+              <div class="stat-icon">💡</div>
+              <div class="stat-content">
+                <div class="stat-value">${report.recommendations.length}</div>
+                <div class="stat-label">توصيات التحسين</div>
+              </div>
             </div>
           ` : ''}
-        </div>
-      `;
+        `;
+      }
     } else {
       estimationInfo.style.display = 'none';
+    }
+  }
+  
+  // Helper functions for status classes
+  function getEstimationStatusClass(percentage) {
+    const pct = parseFloat(percentage);
+    if (pct < 10) return 'success';
+    if (pct < 30) return 'warning';
+    return 'danger';
+  }
+  
+  function getConfidenceStatusClass(confidence) {
+    const conf = parseFloat(confidence);
+    if (conf >= 80) return 'success';
+    if (conf >= 60) return 'warning';
+    return 'danger';
+  }
+  
+  function getQualityStatusClass(quality) {
+    const qualityMap = {
+      'ممتازة': 'success',
+      'جيدة': 'success',
+      'متوسطة': 'warning',
+      'ضعيفة': 'danger'
+    };
+    return qualityMap[quality] || 'info';
+  }
+  
+  // Toggle details panel
+  window.toggleDetailsPanel = function() {
+    const detailsPanel = document.getElementById('detailsPanel');
+    const toggleIcon = document.getElementById('toggleIcon');
+    
+    if (detailsPanel.style.display === 'none' || !detailsPanel.style.display) {
+      detailsPanel.style.display = 'block';
+      toggleIcon.textContent = '📋';
+    } else {
+      detailsPanel.style.display = 'none';
+      toggleIcon.textContent = '📊';
+    }
+  }
+  
+  // Switch between tabs
+  window.switchTab = function(tabName) {
+    // Hide all tab contents
+    const tabContents = document.querySelectorAll('.tab-content');
+    tabContents.forEach(content => {
+      content.style.display = 'none';
+      content.classList.remove('active');
+    });
+    
+    // Remove active class from all tab buttons
+    const tabBtns = document.querySelectorAll('.tab-btn');
+    tabBtns.forEach(btn => btn.classList.remove('active'));
+    
+    // Show selected tab content
+    const selectedTab = document.getElementById(tabName + '-tab');
+    const selectedBtn = document.querySelector(`[onclick="switchTab('${tabName}')"]`);
+    
+    if (selectedTab) {
+      selectedTab.style.display = 'block';
+      selectedTab.classList.add('active');
+    }
+    
+    if (selectedBtn) {
+      selectedBtn.classList.add('active');
     }
   }
 
