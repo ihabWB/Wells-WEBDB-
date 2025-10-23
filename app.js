@@ -578,6 +578,12 @@
     if (exportReadingsBtn) exportReadingsBtn.style.display = 'inline-block';
     if (noReadingsMessage) noReadingsMessage.style.display = 'none';
     
+    // Show quality report button
+    const qualityReportBtn = document.getElementById('qualityReportBtn');
+    if (qualityReportBtn) {
+      qualityReportBtn.style.display = 'inline-block';
+    }
+    
     // Show estimation info if any readings are estimated
     const hasEstimations = processedReadings.some(r => r.hasEstimation);
     if (estimationInfo) {
@@ -593,8 +599,14 @@
         // Determine abstraction display
         const absDisplay = getAbstractionDisplay(reading);
         
+        // Add classes for outliers and confidence levels
+        let rowClasses = [];
+        if (reading.hasEstimation) rowClasses.push('estimated-row');
+        if (reading.isOutlier) rowClasses.push('outlier-row');
+        if (reading.confidence && reading.confidence < 0.5) rowClasses.push('low-confidence');
+        
         return `
-          <tr class="${reading.hasEstimation ? 'estimated-row' : ''}">
+          <tr class="${rowClasses.join(' ')}">
             <td>${reading.reading_date || '-'}</td>
             <td>${monthYear}</td>
             <td>${formatNumber(reading.meter_last_m3)}</td>
@@ -623,79 +635,132 @@
   function estimateAbstractions(readings) {
     if (!readings || readings.length <= 1) return readings;
 
+    // Initialize advanced estimation engine
+    const estimationEngine = new AdvancedEstimationEngine();
+    
     // Sort by date to ensure proper time series
     const sortedReadings = [...readings].sort((a, b) => 
       new Date(a.reading_date) - new Date(b.reading_date)
     );
 
-    // Calculate normalized monthly rates from irregular readings
-    const monthlyRates = [];
-    for (let i = 1; i < sortedReadings.length; i++) {
-      const current = sortedReadings[i];
-      const previous = sortedReadings[i - 1];
-      
-      const currentAbs = current.monthly_abstraction_m3;
-      const monthsGap = getMonthsDifference(
-        new Date(previous.reading_date),
-        new Date(current.reading_date)
-      );
-      
-      // Only use positive abstractions and valid time gaps
-      if (currentAbs > 0 && monthsGap > 0) {
-        const monthlyRate = currentAbs / monthsGap; // Average per month
-        monthlyRates.push({
-          rate: monthlyRate,
-          totalAbstraction: currentAbs,
-          monthsSpan: monthsGap,
-          index: i,
-          date: current.reading_date,
-          startDate: previous.reading_date,
-          endDate: current.reading_date
-        });
-      }
-    }
-
-    // If we have fewer than 2 valid rates, can't estimate effectively
-    if (monthlyRates.length < 2) {
-      return sortedReadings.map(r => ({ ...r, hasEstimation: false }));
-    }
-
-    // Calculate statistics from monthly rates
-    const rates = monthlyRates.map(r => r.rate);
-    const avgMonthlyRate = rates.reduce((sum, r) => sum + r, 0) / rates.length;
-    const medianMonthlyRate = calculateMedian(rates);
-    const seasonalRates = analyzeSeasonalRates(monthlyRates);
-    const trend = calculateRateTrend(monthlyRates);
-
-    // Process each reading for estimation
-    const processedReadings = sortedReadings.map((reading, index) => {
+    // Step 1: Detect outliers first
+    const readingsWithOutliers = estimationEngine.detectOutliers(sortedReadings);
+    
+    // Step 2: Enhanced seasonal analysis
+    const seasonalStats = estimationEngine.enhancedSeasonalAnalysis(readingsWithOutliers);
+    
+    // Step 3: Process each reading with advanced estimation
+    const processedReadings = [];
+    let estimationReport = null;
+    
+    for (let i = 0; i < readingsWithOutliers.length; i++) {
+      const reading = readingsWithOutliers[i];
       const abs = reading.monthly_abstraction_m3;
       
       // If abstraction is valid and positive (non-zero), keep it
       if (abs !== null && abs !== undefined && Number.isFinite(abs) && abs > 0) {
-        return { ...reading, hasEstimation: false, estimatedValue: null };
+        processedReadings.push({ 
+          ...reading, 
+          hasEstimation: false, 
+          estimatedValue: null,
+          confidence: null,
+          isOutlier: reading.isOutlier,
+          zScore: reading.zScore
+        });
+      } else {
+        // Use ML-based estimation
+        const estimationResult = estimationEngine.mlBasedEstimation(i, readingsWithOutliers);
+        
+        // Validate the estimation
+        const validation = estimationEngine.validateEstimation(
+          estimationResult.estimated, 
+          readingsWithOutliers, 
+          i
+        );
+        
+        processedReadings.push({
+          ...reading,
+          hasEstimation: true,
+          estimatedValue: validation.adjustedValue,
+          originalValue: abs,
+          confidence: estimationResult.confidence,
+          estimationMethod: estimationResult.method,
+          validationWarnings: validation.warnings,
+          isOutlier: reading.isOutlier,
+          zScore: reading.zScore
+        });
       }
-
-      // Estimate the abstraction using gap-aware algorithm
-      const estimated = estimateAbstractionForGap(
-        index, 
-        sortedReadings, 
-        monthlyRates, 
-        avgMonthlyRate, 
-        medianMonthlyRate,
-        trend, 
-        seasonalRates
-      );
-      
-      return {
-        ...reading,
-        hasEstimation: true,
-        estimatedValue: estimated,
-        originalValue: abs
-      };
-    });
-
+    }
+    
+    // Step 4: Generate comprehensive estimation report
+    estimationReport = estimationEngine.generateEstimationReport(sortedReadings, processedReadings);
+    
+    // Store report globally for display
+    window.currentEstimationReport = estimationReport;
+    
+    // Update estimation info display
+    updateEstimationInfo(estimationReport, processedReadings);
+    
     return processedReadings;
+  }
+
+  // Add function to update estimation info display
+  function updateEstimationInfo(report, processedReadings) {
+    const estimationInfo = document.getElementById('estimationInfo');
+    if (!estimationInfo) return;
+    
+    const hasEstimations = processedReadings.some(r => r.hasEstimation);
+    const hasOutliers = processedReadings.some(r => r.isOutlier);
+    
+    if (hasEstimations || hasOutliers) {
+      estimationInfo.style.display = 'block';
+      
+      // Update the info content with advanced details
+      const infoContent = estimationInfo.querySelector('.info-content') || 
+        estimationInfo.appendChild(document.createElement('div'));
+      infoContent.className = 'info-content';
+      
+      infoContent.innerHTML = `
+        <div class="estimation-stats">
+          <h4>📊 تقرير جودة البيانات</h4>
+          <div class="stats-grid">
+            <div class="stat-item">
+              <span class="stat-label">إجمالي القراءات:</span>
+              <span class="stat-value">${report.totalReadings}</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">القراءات المقدرة:</span>
+              <span class="stat-value">${report.estimatedCount} (${report.estimationPercentage}%)</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">متوسط الثقة:</span>
+              <span class="stat-value">${report.averageConfidence}%</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">جودة البيانات:</span>
+              <span class="stat-value quality-${report.dataQuality}">${report.dataQuality}</span>
+            </div>
+          </div>
+          
+          ${hasOutliers ? `
+            <div class="outliers-warning">
+              ⚠️ تم اكتشاف قراءات شاذة - مميزة باللون الأحمر
+            </div>
+          ` : ''}
+          
+          ${report.recommendations.length > 0 ? `
+            <div class="recommendations">
+              <h5>🔧 توصيات التحسين:</h5>
+              <ul>
+                ${report.recommendations.map(rec => `<li>${rec}</li>`).join('')}
+              </ul>
+            </div>
+          ` : ''}
+        </div>
+      `;
+    } else {
+      estimationInfo.style.display = 'none';
+    }
   }
 
   function analyzeSeasonalRates(monthlyRates) {
@@ -966,12 +1031,30 @@
         ? formatNumber(reading.originalValue) 
         : 'N/A';
       
+      // Add confidence indicator
+      const confidencePercent = reading.confidence ? Math.round(reading.confidence * 100) : 0;
+      const confidenceClass = confidencePercent >= 70 ? 'high-confidence' : 
+                              confidencePercent >= 50 ? 'medium-confidence' : 'low-confidence';
+      
       return `
-        <span class="estimated-value" title="Estimated value based on time series analysis">
-          ${estimated} <span class="estimation-badge">EST</span>
+        <span class="estimated-value" title="Estimated value using ${reading.estimationMethod || 'Advanced ML'} (Confidence: ${confidencePercent}%)">
+          ${estimated} 
+          <span class="estimation-badge">EST</span>
+          <span class="confidence-indicator ${confidenceClass}" title="Confidence: ${confidencePercent}%">
+            ${confidencePercent}%
+          </span>
         </span>
         ${original !== 'N/A' && original !== '-' ? 
           `<br><small class="original-value">Original: ${original}</small>` : ''}
+        ${reading.validationWarnings && reading.validationWarnings.length > 0 ? 
+          `<br><small class="validation-warning">⚠️ ${reading.validationWarnings.join(', ')}</small>` : ''}
+      `;
+    } else if (reading.isOutlier) {
+      return `
+        <span class="outlier-value" title="Possible outlier (Z-score: ${reading.zScore?.toFixed(2) || 'N/A'})">
+          ${formatNumber(reading.monthly_abstraction_m3)}
+          <span class="outlier-badge">⚠️</span>
+        </span>
       `;
     } else {
       return formatNumber(reading.monthly_abstraction_m3);
@@ -1714,12 +1797,196 @@
     }
   }
 
+  // Quality Report Functions
+  function showQualityReport() {
+    const qualityReportModal = document.getElementById('qualityReportModal');
+    const qualityReportContent = document.getElementById('qualityReportContent');
+    
+    if (!qualityReportModal || !qualityReportContent) return;
+    
+    const report = window.currentEstimationReport;
+    if (!report) {
+      alert('لا يوجد تقرير جودة متاح. يرجى تحميل البيانات أولاً.');
+      return;
+    }
+    
+    // Generate detailed quality report
+    qualityReportContent.innerHTML = generateDetailedQualityReport(report);
+    qualityReportModal.style.display = 'flex';
+  }
+  
+  function generateDetailedQualityReport(report) {
+    return `
+      <div class="quality-report-sections">
+        <!-- Executive Summary -->
+        <section class="report-section">
+          <h4>📋 الملخص التنفيذي</h4>
+          <div class="executive-summary">
+            <div class="summary-grid">
+              <div class="summary-metric">
+                <div class="metric-value ${getQualityClass(report.dataQuality)}">${report.dataQuality}</div>
+                <div class="metric-label">تقييم جودة البيانات</div>
+              </div>
+              <div class="summary-metric">
+                <div class="metric-value">${report.estimationPercentage}%</div>
+                <div class="metric-label">نسبة القراءات المقدرة</div>
+              </div>
+              <div class="summary-metric">
+                <div class="metric-value">${report.averageConfidence}%</div>
+                <div class="metric-label">متوسط مستوى الثقة</div>
+              </div>
+              <div class="summary-metric">
+                <div class="metric-value">${report.totalReadings}</div>
+                <div class="metric-label">إجمالي القراءات</div>
+              </div>
+            </div>
+          </div>
+        </section>
+        
+        <!-- Data Completeness Analysis -->
+        <section class="report-section">
+          <h4>📊 تحليل اكتمال البيانات</h4>
+          <div class="completeness-analysis">
+            <div class="progress-container">
+              <div class="progress-label">القراءات الفعلية</div>
+              <div class="progress-bar">
+                <div class="progress-fill actual-data" style="width: ${100 - parseFloat(report.estimationPercentage)}%"></div>
+              </div>
+              <div class="progress-value">${100 - parseFloat(report.estimationPercentage)}%</div>
+            </div>
+            <div class="progress-container">
+              <div class="progress-label">القراءات المقدرة</div>
+              <div class="progress-bar">
+                <div class="progress-fill estimated-data" style="width: ${report.estimationPercentage}%"></div>
+              </div>
+              <div class="progress-value">${report.estimationPercentage}%</div>
+            </div>
+          </div>
+        </section>
+        
+        <!-- Recommendations -->
+        ${report.recommendations.length > 0 ? `
+        <section class="report-section">
+          <h4>🔧 التوصيات والإجراءات المطلوبة</h4>
+          <div class="recommendations-list">
+            ${report.recommendations.map((rec, index) => `
+              <div class="recommendation-item">
+                <div class="recommendation-priority">
+                  ${index < 2 ? '🔴 عالي' : index < 4 ? '🟡 متوسط' : '🟢 منخفض'}
+                </div>
+                <div class="recommendation-text">${rec}</div>
+              </div>
+            `).join('')}
+          </div>
+        </section>
+        ` : ''}
+        
+        <!-- Technical Details -->
+        <section class="report-section">
+          <h4>⚙️ التفاصيل التقنية</h4>
+          <div class="technical-details">
+            <div class="detail-grid">
+              <div class="detail-item">
+                <strong>خوارزمية التقدير:</strong>
+                <span>التعلم الآلي مع الانحدار الخطي</span>
+              </div>
+              <div class="detail-item">
+                <strong>طريقة كشف الشواذ:</strong>
+                <span>Z-Score Analysis (threshold: 2.5)</span>
+              </div>
+              <div class="detail-item">
+                <strong>التحليل الموسمي:</strong>
+                <span>أنماط الاستهلاك الفصلية</span>
+              </div>
+              <div class="detail-item">
+                <strong>التحقق من الجودة:</strong>
+                <span>تطبيق قواعد التحقق التلقائي</span>
+              </div>
+            </div>
+          </div>
+        </section>
+        
+        <!-- Action Items -->
+        <section class="report-section">
+          <h4>📝 خطة العمل المقترحة</h4>
+          <div class="action-items">
+            <div class="action-timeline">
+              <div class="timeline-item">
+                <div class="timeline-marker immediate"></div>
+                <div class="timeline-content">
+                  <h5>فوري (1-7 أيام)</h5>
+                  <ul>
+                    <li>مراجعة القراءات المميزة كشاذة</li>
+                    <li>تحديث القراءات المفقودة إن أمكن</li>
+                  </ul>
+                </div>
+              </div>
+              <div class="timeline-item">
+                <div class="timeline-marker short-term"></div>
+                <div class="timeline-content">
+                  <h5>قصير المدى (1-4 أسابيع)</h5>
+                  <ul>
+                    <li>وضع جدول منتظم لقراءة العدادات</li>
+                    <li>تدريب الفريق على الإجراءات الصحيحة</li>
+                  </ul>
+                </div>
+              </div>
+              <div class="timeline-item">
+                <div class="timeline-marker long-term"></div>
+                <div class="timeline-content">
+                  <h5>طويل المدى (1-3 أشهر)</h5>
+                  <ul>
+                    <li>تطوير نظام تنبيهات للقراءات المتأخرة</li>
+                    <li>تحسين دقة خوارزميات التقدير</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    `;
+  }
+  
+  function getQualityClass(quality) {
+    const qualityClasses = {
+      'ممتازة': 'quality-excellent',
+      'جيدة': 'quality-good', 
+      'متوسطة': 'quality-average',
+      'ضعيفة': 'quality-poor'
+    };
+    return qualityClasses[quality] || 'quality-unknown';
+  }
+
   if (loadReadingsBtn) {
     loadReadingsBtn.addEventListener('click', loadMonthlyReadings);
   }
 
   if (clearReadingsBtn) {
     clearReadingsBtn.addEventListener('click', clearReadingsFilters);
+  }
+  
+  // Quality Report Event Listeners
+  const qualityReportBtn = document.getElementById('qualityReportBtn');
+  const closeQualityReportModal = document.getElementById('closeQualityReportModal');
+  const qualityReportModal = document.getElementById('qualityReportModal');
+  
+  if (qualityReportBtn) {
+    qualityReportBtn.addEventListener('click', showQualityReport);
+  }
+  
+  if (closeQualityReportModal) {
+    closeQualityReportModal.addEventListener('click', () => {
+      qualityReportModal.style.display = 'none';
+    });
+  }
+  
+  if (qualityReportModal) {
+    qualityReportModal.addEventListener('click', (e) => {
+      if (e.target === qualityReportModal) {
+        qualityReportModal.style.display = 'none';
+      }
+    });
   }
 
   if (exportReadingsBtn) {
