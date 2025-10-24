@@ -1226,6 +1226,17 @@
     readingsStatus.className = `status-text ${type}`;
   }
 
+  function showMessage(elementId, message, type = 'ok') {
+    const element = document.getElementById(elementId);
+    if (element) {
+      element.textContent = message;
+      element.className = `msg ${type}`;
+    } else {
+      // Fallback to setReadingsStatus if specific element not found
+      setReadingsStatus(message, type);
+    }
+  }
+
   function formatNumber(value) {
     if (value === null || value === undefined || value === '') return '-';
     if (!Number.isFinite(Number(value))) return '-';
@@ -2175,13 +2186,72 @@
       reportType.addEventListener('change', handleReportTypeChange);
     }
 
-    // Report period change handler
-    const reportPeriod = document.getElementById('reportPeriod');
-    if (reportPeriod) {
-      reportPeriod.addEventListener('change', (e) => {
-        const customRange = document.getElementById('customDateRange');
-        if (customRange) {
-          customRange.style.display = e.target.value === 'custom' ? 'block' : 'none';
+    // Monthly report filters
+    const monthlyPeriod = document.getElementById('monthlyPeriod');
+    if (monthlyPeriod) {
+      monthlyPeriod.addEventListener('change', (e) => {
+        const specificMonthPicker = document.getElementById('specificMonthPicker');
+        if (specificMonthPicker) {
+          specificMonthPicker.style.display = e.target.value === 'specific_month' ? 'block' : 'none';
+        }
+      });
+    }
+
+    // Annual report filters
+    const annualPeriod = document.getElementById('annualPeriod');
+    if (annualPeriod) {
+      annualPeriod.addEventListener('change', (e) => {
+        const specificYearPicker = document.getElementById('specificYearPicker');
+        if (specificYearPicker) {
+          specificYearPicker.style.display = e.target.value === 'specific_year' ? 'block' : 'none';
+        }
+      });
+    }
+
+    // Comparative report filters
+    const comparisonType = document.getElementById('comparisonType');
+    if (comparisonType) {
+      comparisonType.addEventListener('change', (e) => {
+        const monthlyComparison = document.getElementById('monthlyComparison');
+        const yearlyComparison = document.getElementById('yearlyComparison');
+        const customComparison = document.getElementById('customComparison');
+        
+        if (monthlyComparison) monthlyComparison.style.display = 'none';
+        if (yearlyComparison) yearlyComparison.style.display = 'none';
+        if (customComparison) customComparison.style.display = 'none';
+        
+        switch (e.target.value) {
+          case 'monthly':
+            if (monthlyComparison) monthlyComparison.style.display = 'block';
+            break;
+          case 'yearly':
+            if (yearlyComparison) yearlyComparison.style.display = 'block';
+            break;
+          case 'custom':
+            if (customComparison) customComparison.style.display = 'block';
+            break;
+        }
+      });
+    }
+
+    // Forecast report filters
+    const forecastPeriod = document.getElementById('forecastPeriod');
+    if (forecastPeriod) {
+      forecastPeriod.addEventListener('change', (e) => {
+        const forecastCustomPeriod = document.getElementById('forecastCustomPeriod');
+        if (forecastCustomPeriod) {
+          forecastCustomPeriod.style.display = e.target.value === 'custom_period' ? 'block' : 'none';
+        }
+      });
+    }
+
+    // Wells analysis filters
+    const wellsPeriod = document.getElementById('wellsPeriod');
+    if (wellsPeriod) {
+      wellsPeriod.addEventListener('change', (e) => {
+        const wellsCustomPeriod = document.getElementById('wellsCustomPeriod');
+        if (wellsCustomPeriod) {
+          wellsCustomPeriod.style.display = e.target.value === 'custom' ? 'block' : 'none';
         }
       });
     }
@@ -2273,24 +2343,353 @@
     return names[scenario] || scenario;
   }
 
+  function filterDataByPeriod(data, period) {
+    if (!data || data.length === 0) return [];
+    
+    const now = new Date();
+    let startDate, endDate;
+    
+    switch (period) {
+      case 'current':
+        // Current month
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        break;
+        
+      case 'last3':
+        // Last 3 months
+        startDate = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+        endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        break;
+        
+      case 'last6':
+        // Last 6 months
+        startDate = new Date(now.getFullYear(), now.getMonth() - 6, 1);
+        endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        break;
+        
+      case 'lastyear':
+        // Last year
+        startDate = new Date(now.getFullYear() - 1, 0, 1);
+        endDate = new Date(now.getFullYear() - 1, 11, 31);
+        break;
+        
+      case 'custom':
+        // Custom date range
+        const startInput = document.getElementById('reportStartDate');
+        const endInput = document.getElementById('reportEndDate');
+        if (startInput && endInput && startInput.value && endInput.value) {
+          startDate = new Date(startInput.value);
+          endDate = new Date(endInput.value);
+        } else {
+          return data; // Return all data if custom dates not set
+        }
+        break;
+        
+      default:
+        return data; // Return all data for unknown period
+    }
+    
+    return data.filter(reading => {
+      const readingDate = new Date(reading.reading_date);
+      return readingDate >= startDate && readingDate <= endDate;
+    });
+  }
+
+  function getDateInfoFromPeriod(period) {
+    const now = new Date();
+    
+    switch (period) {
+      case 'current':
+        return {
+          year: now.getFullYear(),
+          month: now.getMonth() + 1
+        };
+        
+      case 'last3':
+      case 'last6':
+        return {
+          year: now.getFullYear(),
+          month: now.getMonth() + 1
+        };
+        
+      case 'lastyear':
+        return {
+          year: now.getFullYear() - 1,
+          month: 12
+        };
+        
+      case 'custom':
+        const startInput = document.getElementById('reportStartDate');
+        if (startInput && startInput.value) {
+          const startDate = new Date(startInput.value);
+          return {
+            year: startDate.getFullYear(),
+            month: startDate.getMonth() + 1
+          };
+        }
+        return {
+          year: now.getFullYear(),
+          month: now.getMonth() + 1
+        };
+        
+      default:
+        return {
+          year: now.getFullYear(),
+          month: now.getMonth() + 1
+        };
+    }
+  }
+
+  // New functions for specific report data filtering
+  function getMonthlyReportData(allReadings) {
+    const monthlyPeriod = document.getElementById('monthlyPeriod')?.value;
+    const now = new Date();
+    let startDate, endDate;
+
+    switch (monthlyPeriod) {
+      case 'current_month':
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        break;
+        
+      case 'last_month':
+        startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        endDate = new Date(now.getFullYear(), now.getMonth(), 0);
+        break;
+        
+      case 'last_6_months':
+        startDate = new Date(now.getFullYear(), now.getMonth() - 6, 1);
+        endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        break;
+        
+      case 'specific_month':
+        const selectedMonth = document.getElementById('selectedMonth')?.value;
+        if (selectedMonth) {
+          const [year, month] = selectedMonth.split('-');
+          startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
+          endDate = new Date(parseInt(year), parseInt(month), 0);
+        } else {
+          return allReadings;
+        }
+        break;
+        
+      default:
+        return allReadings;
+    }
+
+    return filterDataByDateRange(allReadings, startDate, endDate);
+  }
+
+  function getAnnualReportData(allReadings) {
+    const annualPeriod = document.getElementById('annualPeriod')?.value;
+    const now = new Date();
+    let startDate, endDate;
+
+    switch (annualPeriod) {
+      case 'current_year':
+        startDate = new Date(now.getFullYear(), 0, 1);
+        endDate = new Date(now.getFullYear(), 11, 31);
+        break;
+        
+      case 'last_year':
+        startDate = new Date(now.getFullYear() - 1, 0, 1);
+        endDate = new Date(now.getFullYear() - 1, 11, 31);
+        break;
+        
+      case 'specific_year':
+        const selectedYear = document.getElementById('selectedYear')?.value;
+        if (selectedYear) {
+          startDate = new Date(parseInt(selectedYear), 0, 1);
+          endDate = new Date(parseInt(selectedYear), 11, 31);
+        } else {
+          return allReadings;
+        }
+        break;
+        
+      default:
+        return allReadings;
+    }
+
+    return filterDataByDateRange(allReadings, startDate, endDate);
+  }
+
+  function getForecastReportData(allReadings) {
+    const forecastPeriod = document.getElementById('forecastPeriod')?.value;
+    const now = new Date();
+    let startDate, endDate;
+
+    switch (forecastPeriod) {
+      case 'last_6_months':
+        startDate = new Date(now.getFullYear(), now.getMonth() - 6, 1);
+        endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        break;
+        
+      case 'last_12_months':
+        startDate = new Date(now.getFullYear(), now.getMonth() - 12, 1);
+        endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        break;
+        
+      case 'last_24_months':
+        startDate = new Date(now.getFullYear(), now.getMonth() - 24, 1);
+        endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        break;
+        
+      case 'custom_period':
+        const forecastStartDate = document.getElementById('forecastStartDate')?.value;
+        const forecastEndDate = document.getElementById('forecastEndDate')?.value;
+        if (forecastStartDate && forecastEndDate) {
+          startDate = new Date(forecastStartDate);
+          endDate = new Date(forecastEndDate);
+        } else {
+          return allReadings;
+        }
+        break;
+        
+      default:
+        return allReadings;
+    }
+
+    return filterDataByDateRange(allReadings, startDate, endDate);
+  }
+
+  function getWellsReportData(allReadings) {
+    const wellsPeriod = document.getElementById('wellsPeriod')?.value;
+    const now = new Date();
+    let startDate, endDate;
+
+    switch (wellsPeriod) {
+      case 'current_year':
+        startDate = new Date(now.getFullYear(), 0, 1);
+        endDate = new Date(now.getFullYear(), 11, 31);
+        break;
+        
+      case 'last_year':
+        startDate = new Date(now.getFullYear() - 1, 0, 1);
+        endDate = new Date(now.getFullYear() - 1, 11, 31);
+        break;
+        
+      case 'last_6_months':
+        startDate = new Date(now.getFullYear(), now.getMonth() - 6, 1);
+        endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        break;
+        
+      case 'all_time':
+        return allReadings;
+        
+      case 'custom':
+        const wellsStartDate = document.getElementById('wellsStartDate')?.value;
+        const wellsEndDate = document.getElementById('wellsEndDate')?.value;
+        if (wellsStartDate && wellsEndDate) {
+          startDate = new Date(wellsStartDate);
+          endDate = new Date(wellsEndDate);
+        } else {
+          return allReadings;
+        }
+        break;
+        
+      default:
+        return allReadings;
+    }
+
+    return filterDataByDateRange(allReadings, startDate, endDate);
+  }
+
+  function getMonthlyDateInfo() {
+    const monthlyPeriod = document.getElementById('monthlyPeriod')?.value;
+    const now = new Date();
+    
+    switch (monthlyPeriod) {
+      case 'current_month':
+        return { year: now.getFullYear(), month: now.getMonth() + 1 };
+        
+      case 'last_month':
+        const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        return { year: lastMonth.getFullYear(), month: lastMonth.getMonth() + 1 };
+        
+      case 'specific_month':
+        const selectedMonth = document.getElementById('selectedMonth')?.value;
+        if (selectedMonth) {
+          const [year, month] = selectedMonth.split('-');
+          return { year: parseInt(year), month: parseInt(month) };
+        }
+        return { year: now.getFullYear(), month: now.getMonth() + 1 };
+        
+      default:
+        return { year: now.getFullYear(), month: now.getMonth() + 1 };
+    }
+  }
+
+  function getAnnualDateInfo() {
+    const annualPeriod = document.getElementById('annualPeriod')?.value;
+    const now = new Date();
+    
+    switch (annualPeriod) {
+      case 'current_year':
+        return { year: now.getFullYear() };
+        
+      case 'last_year':
+        return { year: now.getFullYear() - 1 };
+        
+      case 'specific_year':
+        const selectedYear = document.getElementById('selectedYear')?.value;
+        if (selectedYear) {
+          return { year: parseInt(selectedYear) };
+        }
+        return { year: now.getFullYear() };
+        
+      default:
+        return { year: now.getFullYear() };
+    }
+  }
+
+  function filterDataByDateRange(data, startDate, endDate) {
+    return data.filter(reading => {
+      const readingDate = new Date(reading.reading_date);
+      return readingDate >= startDate && readingDate <= endDate;
+    });
+  }
+
   function handleReportTypeChange() {
     const reportType = document.getElementById('reportType');
-    const comparisonTools = document.getElementById('comparisonTools');
-    const forecastSection = document.getElementById('forecastSection');
-    
     if (!reportType) return;
 
-    // Hide all optional sections first
-    if (comparisonTools) comparisonTools.style.display = 'none';
-    if (forecastSection) forecastSection.style.display = 'none';
+    // Hide all filter sections first
+    const filterSections = [
+      'monthlyFilters', 'annualFilters', 'comparativeFilters', 
+      'forecastFilters', 'wellsFilters'
+    ];
+    
+    filterSections.forEach(sectionId => {
+      const section = document.getElementById(sectionId);
+      if (section) section.style.display = 'none';
+    });
 
-    // Show relevant sections based on selected type
+    // Show relevant filter section based on selected type
     switch (reportType.value) {
-      case 'comparative':
-        if (comparisonTools) comparisonTools.style.display = 'block';
+      case 'monthly':
+        const monthlyFilters = document.getElementById('monthlyFilters');
+        if (monthlyFilters) monthlyFilters.style.display = 'block';
         break;
+        
+      case 'annual':
+        const annualFilters = document.getElementById('annualFilters');
+        if (annualFilters) annualFilters.style.display = 'block';
+        break;
+        
+      case 'comparative':
+        const comparativeFilters = document.getElementById('comparativeFilters');
+        if (comparativeFilters) comparativeFilters.style.display = 'block';
+        break;
+        
       case 'forecast':
-        if (forecastSection) forecastSection.style.display = 'block';
+        const forecastFilters = document.getElementById('forecastFilters');
+        if (forecastFilters) forecastFilters.style.display = 'block';
+        break;
+        
+      case 'wells':
+        const wellsFilters = document.getElementById('wellsFilters');
+        if (wellsFilters) wellsFilters.style.display = 'block';
         break;
     }
   }
@@ -2302,10 +2701,9 @@
     }
 
     const reportType = document.getElementById('reportType');
-    const reportPeriod = document.getElementById('reportPeriod');
     const reportResults = document.getElementById('reportResults');
     
-    if (!reportType || !reportPeriod || !reportResults) return;
+    if (!reportType || !reportResults) return;
 
     try {
       // Show loading state
@@ -2320,26 +2718,44 @@
       }
 
       let reportData = null;
-      const currentDate = new Date();
-      const currentYear = currentDate.getFullYear();
-      const currentMonth = currentDate.getMonth() + 1;
+      let filteredData = [];
 
       switch (reportType.value) {
         case 'monthly':
-          reportData = reportsEngine.generateMonthlyReport(allReadings, currentYear, currentMonth);
+          filteredData = getMonthlyReportData(allReadings);
+          if (filteredData.length === 0) {
+            throw new Error('لا توجد بيانات للفترة المحددة');
+          }
+          const monthInfo = getMonthlyDateInfo();
+          reportData = reportsEngine.generateMonthlyReport(filteredData, monthInfo.year, monthInfo.month);
           break;
+          
         case 'annual':
-          reportData = reportsEngine.generateAnnualReport(allReadings, currentYear);
+          filteredData = getAnnualReportData(allReadings);
+          if (filteredData.length === 0) {
+            throw new Error('لا توجد بيانات للفترة المحددة');
+          }
+          const yearInfo = getAnnualDateInfo();
+          reportData = reportsEngine.generateAnnualReport(filteredData, yearInfo.year);
           break;
-        case 'wells':
-          reportData = generateWellsAnalysisReport(allReadings);
-          break;
+          
         case 'comparative':
-          reportData = generateBasicComparativeReport(allReadings);
+          reportData = generateComparativeReport(allReadings);
           break;
+          
         case 'forecast':
-          reportData = generateBasicForecastReport(allReadings);
+          filteredData = getForecastReportData(allReadings);
+          if (filteredData.length < 3) {
+            throw new Error('البيانات غير كافية للتنبؤ - يحتاج على الأقل 3 قراءات');
+          }
+          reportData = generateAdvancedForecastReport(filteredData);
           break;
+          
+        case 'wells':
+          filteredData = getWellsReportData(allReadings);
+          reportData = generateWellsAnalysisReport(filteredData);
+          break;
+          
         default:
           throw new Error('نوع تقرير غير مدعوم: ' + reportType.value);
       }
@@ -2485,9 +2901,8 @@
         };
       }
       wellsData[wellId].readings.push(reading);
-      if (reading.abstraction_m3) {
-        wellsData[wellId].totalConsumption += parseFloat(reading.abstraction_m3) || 0;
-      }
+      const consumption = getCorrectedConsumption(reading);
+      wellsData[wellId].totalConsumption += consumption;
     });
 
     // Calculate averages
@@ -2498,7 +2913,7 @@
 
     return {
       type: 'wells_analysis',
-      period: { type: 'all_time' },
+      period: { type: 'filtered_period' },
       wells: Object.values(wellsData),
       summary: {
         totalWells: Object.keys(wellsData).length,
@@ -2508,33 +2923,60 @@
     };
   }
 
-  function generateBasicComparativeReport(allReadings) {
-    const currentDate = new Date();
-    const currentMonth = currentDate.getMonth();
-    const currentYear = currentDate.getFullYear();
+  function generateComparativeReport(allReadings) {
+    const comparisonType = document.getElementById('comparisonType')?.value;
     
-    const thisMonth = allReadings.filter(r => {
-      const readingDate = new Date(r.reading_date);
-      return readingDate.getMonth() === currentMonth && readingDate.getFullYear() === currentYear;
+    switch (comparisonType) {
+      case 'monthly':
+        return generateMonthlyComparison(allReadings);
+      case 'yearly':
+        return generateYearlyComparison(allReadings);
+      case 'custom':
+        return generateCustomComparison(allReadings);
+      default:
+        return generateBasicComparativeReport(allReadings);
+    }
+  }
+
+  function generateMonthlyComparison(allReadings) {
+    const firstMonth = document.getElementById('firstMonth')?.value;
+    const secondMonth = document.getElementById('secondMonth')?.value;
+    
+    if (!firstMonth || !secondMonth) {
+      throw new Error('يجب اختيار الشهرين للمقارنة');
+    }
+
+    const [year1, month1] = firstMonth.split('-');
+    const [year2, month2] = secondMonth.split('-');
+    
+    const firstPeriod = allReadings.filter(reading => {
+      const date = new Date(reading.reading_date);
+      return date.getFullYear() == year1 && (date.getMonth() + 1) == month1;
     });
     
-    const lastMonth = allReadings.filter(r => {
-      const readingDate = new Date(r.reading_date);
-      const lastMonthDate = new Date(currentYear, currentMonth - 1);
-      return readingDate.getMonth() === lastMonthDate.getMonth() && 
-             readingDate.getFullYear() === lastMonthDate.getFullYear();
+    const secondPeriod = allReadings.filter(reading => {
+      const date = new Date(reading.reading_date);
+      return date.getFullYear() == year2 && (date.getMonth() + 1) == month2;
     });
 
-    const thisMonthTotal = thisMonth.reduce((sum, r) => sum + (parseFloat(r.abstraction_m3) || 0), 0);
-    const lastMonthTotal = lastMonth.reduce((sum, r) => sum + (parseFloat(r.abstraction_m3) || 0), 0);
+    const firstTotal = firstPeriod.reduce((sum, r) => sum + getCorrectedConsumption(r), 0);
+    const secondTotal = secondPeriod.reduce((sum, r) => sum + getCorrectedConsumption(r), 0);
     
-    const change = thisMonthTotal - lastMonthTotal;
-    const changePercent = lastMonthTotal > 0 ? (change / lastMonthTotal) * 100 : 0;
+    const change = secondTotal - firstTotal;
+    const changePercent = firstTotal > 0 ? (change / firstTotal) * 100 : 0;
 
     return {
       type: 'comparative',
-      period1: { name: 'الشهر الحالي', total: thisMonthTotal, count: thisMonth.length },
-      period2: { name: 'الشهر الماضي', total: lastMonthTotal, count: lastMonth.length },
+      period1: { 
+        name: `${getMonthName(parseInt(month1))} ${year1}`, 
+        total: firstTotal, 
+        count: firstPeriod.length 
+      },
+      period2: { 
+        name: `${getMonthName(parseInt(month2))} ${year2}`, 
+        total: secondTotal, 
+        count: secondPeriod.length 
+      },
       comparison: {
         change: change,
         changePercent: changePercent,
@@ -2543,36 +2985,254 @@
     };
   }
 
-  function generateBasicForecastReport(allReadings) {
+  function generateYearlyComparison(allReadings) {
+    const firstYear = document.getElementById('firstYear')?.value;
+    const secondYear = document.getElementById('secondYear')?.value;
+    
+    if (!firstYear || !secondYear) {
+      throw new Error('يجب اختيار السنتين للمقارنة');
+    }
+    
+    const firstPeriod = allReadings.filter(reading => {
+      const date = new Date(reading.reading_date);
+      return date.getFullYear() == firstYear;
+    });
+    
+    const secondPeriod = allReadings.filter(reading => {
+      const date = new Date(reading.reading_date);
+      return date.getFullYear() == secondYear;
+    });
+
+    const firstTotal = firstPeriod.reduce((sum, r) => sum + (parseFloat(r.monthly_abstraction_m3) || 0), 0);
+    const secondTotal = secondPeriod.reduce((sum, r) => sum + (parseFloat(r.monthly_abstraction_m3) || 0), 0);
+    
+    const change = secondTotal - firstTotal;
+    const changePercent = firstTotal > 0 ? (change / firstTotal) * 100 : 0;
+
+    return {
+      type: 'comparative',
+      period1: { 
+        name: `سنة ${firstYear}`, 
+        total: firstTotal, 
+        count: firstPeriod.length 
+      },
+      period2: { 
+        name: `سنة ${secondYear}`, 
+        total: secondTotal, 
+        count: secondPeriod.length 
+      },
+      comparison: {
+        change: change,
+        changePercent: changePercent,
+        trend: change > 0 ? 'increase' : change < 0 ? 'decrease' : 'stable'
+      }
+    };
+  }
+
+  function generateCustomComparison(allReadings) {
+    const firstPeriodStart = document.getElementById('firstPeriodStart')?.value;
+    const firstPeriodEnd = document.getElementById('firstPeriodEnd')?.value;
+    const secondPeriodStart = document.getElementById('secondPeriodStart')?.value;
+    const secondPeriodEnd = document.getElementById('secondPeriodEnd')?.value;
+    
+    if (!firstPeriodStart || !firstPeriodEnd || !secondPeriodStart || !secondPeriodEnd) {
+      throw new Error('يجب تحديد جميع تواريخ الفترات للمقارنة');
+    }
+    
+    const firstPeriod = filterDataByDateRange(allReadings, new Date(firstPeriodStart), new Date(firstPeriodEnd));
+    const secondPeriod = filterDataByDateRange(allReadings, new Date(secondPeriodStart), new Date(secondPeriodEnd));
+
+    const firstTotal = firstPeriod.reduce((sum, r) => sum + (parseFloat(r.monthly_abstraction_m3) || 0), 0);
+    const secondTotal = secondPeriod.reduce((sum, r) => sum + (parseFloat(r.monthly_abstraction_m3) || 0), 0);
+    
+    const change = secondTotal - firstTotal;
+    const changePercent = firstTotal > 0 ? (change / firstTotal) * 100 : 0;
+
+    return {
+      type: 'comparative',
+      period1: { 
+        name: `${new Date(firstPeriodStart).toLocaleDateString('ar')} - ${new Date(firstPeriodEnd).toLocaleDateString('ar')}`, 
+        total: firstTotal, 
+        count: firstPeriod.length 
+      },
+      period2: { 
+        name: `${new Date(secondPeriodStart).toLocaleDateString('ar')} - ${new Date(secondPeriodEnd).toLocaleDateString('ar')}`, 
+        total: secondTotal, 
+        count: secondPeriod.length 
+      },
+      comparison: {
+        change: change,
+        changePercent: changePercent,
+        trend: change > 0 ? 'increase' : change < 0 ? 'decrease' : 'stable'
+      }
+    };
+  }
+
+  function generateAdvancedForecastReport(filteredData) {
     try {
-      if (predictionEngine && allReadings.length >= 6) {
-        const forecastData = predictionEngine.predictFutureConsumption(allReadings, 6, 'hybrid');
+      // Get forecast horizon
+      const forecastHorizon = parseInt(document.getElementById('forecastHorizon')?.value) || 6;
+      
+      if (predictionEngine && filteredData.length >= 6) {
+        const forecastData = predictionEngine.predictFutureConsumption(filteredData, forecastHorizon, 'hybrid');
         return {
           type: 'forecast',
           predictions: forecastData.predictions,
           accuracy: forecastData.accuracy,
           confidence: forecastData.confidence,
-          methodology: forecastData.methodology
+          methodology: forecastData.methodology,
+          dataCount: filteredData.length,
+          horizon: forecastHorizon
         };
       } else {
-        // Simple trend-based forecast fallback
-        const recentData = allReadings.slice(0, 6);
-        const totalConsumption = recentData.reduce((sum, r) => sum + (parseFloat(r.abstraction_m3) || 0), 0);
+        // Enhanced simple forecast
+        if (filteredData.length < 3) {
+          throw new Error('البيانات غير كافية للتنبؤ - يحتاج على الأقل 3 قراءات للتحليل الأساسي');
+        }
+        
+        const sortedData = filteredData.sort((a, b) => new Date(a.reading_date) - new Date(b.reading_date));
+        const recentData = sortedData.slice(-Math.min(12, sortedData.length)); // Last 12 or available readings
+        
+        const totalConsumption = recentData.reduce((sum, r) => sum + (parseFloat(r.monthly_abstraction_m3) || 0), 0);
         const averageConsumption = recentData.length > 0 ? totalConsumption / recentData.length : 0;
+        
+        // Calculate linear trend
+        let trend = 0;
+        let seasonality = 0;
+        
+        if (recentData.length >= 6) {
+          const midPoint = Math.floor(recentData.length / 2);
+          const firstHalf = recentData.slice(0, midPoint);
+          const secondHalf = recentData.slice(midPoint);
+          
+          const firstAvg = firstHalf.reduce((sum, r) => sum + (parseFloat(r.monthly_abstraction_m3) || 0), 0) / firstHalf.length;
+          const secondAvg = secondHalf.reduce((sum, r) => sum + (parseFloat(r.monthly_abstraction_m3) || 0), 0) / secondHalf.length;
+          
+          trend = (secondAvg - firstAvg) / midPoint; // Monthly trend
+          
+          // Simple seasonality detection
+          if (recentData.length >= 12) {
+            const monthlyAvg = {};
+            recentData.forEach(reading => {
+              const month = new Date(reading.reading_date).getMonth() + 1;
+              if (!monthlyAvg[month]) monthlyAvg[month] = [];
+              monthlyAvg[month].push(parseFloat(reading.monthly_abstraction_m3) || 0);
+            });
+            
+            const monthlyVariation = Object.keys(monthlyAvg).map(month => {
+              const avg = monthlyAvg[month].reduce((sum, val) => sum + val, 0) / monthlyAvg[month].length;
+              return Math.abs(avg - averageConsumption);
+            });
+            
+            seasonality = monthlyVariation.reduce((sum, val) => sum + val, 0) / monthlyVariation.length;
+          }
+        }
+        
+        // Generate predictions
+        const predictions = [];
+        const currentDate = new Date();
+        
+        for (let i = 1; i <= forecastHorizon; i++) {
+          const futureDate = new Date(currentDate);
+          futureDate.setMonth(futureDate.getMonth() + i);
+          
+          // Apply trend and seasonal adjustment
+          const seasonalFactor = seasonality > 0 ? (Math.sin((futureDate.getMonth() * Math.PI) / 6) * seasonality * 0.1) : 0;
+          const predictedValue = averageConsumption + (trend * i) + seasonalFactor;
+          
+          predictions.push({
+            period: futureDate.toLocaleDateString('ar', { year: 'numeric', month: 'long' }),
+            value: Math.max(0, predictedValue),
+            confidence: Math.max(0.3, 1 - (i * 0.1)) // Decreasing confidence over time
+          });
+        }
         
         return {
           type: 'forecast',
           simple: true,
           currentAverage: averageConsumption,
-          projectedConsumption: averageConsumption * 6, // 6 months
-          note: 'تنبؤ مبسط - يحتاج المزيد من البيانات للتحليل المتقدم'
+          trend: trend,
+          seasonality: seasonality,
+          predictions: predictions,
+          confidence: recentData.length >= 12 ? 'متوسط' : 'منخفض',
+          dataCount: filteredData.length,
+          horizon: forecastHorizon,
+          note: recentData.length < 12 ? 
+            'تنبؤ أولي - للحصول على تحليل أكثر دقة يُنصح بتوفير 12 شهر من البيانات على الأقل' : 
+            'تنبؤ محسن مع اكتشاف الاتجاهات والمواسم'
+        };
+      }
+    } catch (error) {
+      throw new Error('خطأ في إنشاء التنبؤ: ' + error.message);
+    }
+  }
+
+  function getMonthName(monthNumber) {
+    const months = [
+      'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
+      'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'
+    ];
+    return months[monthNumber - 1] || 'غير معروف';
+  }
+
+  // Helper function to get corrected consumption value
+  function getCorrectedConsumption(reading) {
+    // أولوية للبيانات المُصححة والمُقدرة
+    return parseFloat(reading.corrected_abstraction) || 
+           parseFloat(reading.estimated_abstraction) ||
+           parseFloat(reading.monthly_abstraction_m3) || 
+           parseFloat(reading.abstraction) || 0;
+  }
+
+  function generateBasicForecastReport(filteredData) {
+    try {
+      if (predictionEngine && filteredData.length >= 6) {
+        const forecastData = predictionEngine.predictFutureConsumption(filteredData, 6, 'hybrid');
+        return {
+          type: 'forecast',
+          predictions: forecastData.predictions,
+          accuracy: forecastData.accuracy,
+          confidence: forecastData.confidence,
+          methodology: forecastData.methodology,
+          dataCount: filteredData.length
+        };
+      } else {
+        // Simple trend-based forecast fallback
+        const recentData = filteredData.slice(-6); // Last 6 readings
+        const totalConsumption = recentData.reduce((sum, r) => sum + (parseFloat(r.monthly_abstraction_m3) || parseFloat(r.abstraction) || 0), 0);
+        const averageConsumption = recentData.length > 0 ? totalConsumption / recentData.length : 0;
+        
+        // Simple linear trend calculation
+        let trend = 0;
+        if (recentData.length >= 3) {
+          const firstHalf = recentData.slice(0, Math.floor(recentData.length / 2));
+          const secondHalf = recentData.slice(Math.floor(recentData.length / 2));
+          
+          const firstAvg = firstHalf.reduce((sum, r) => sum + (parseFloat(r.monthly_abstraction_m3) || parseFloat(r.abstraction) || 0), 0) / firstHalf.length;
+          const secondAvg = secondHalf.reduce((sum, r) => sum + (parseFloat(r.monthly_abstraction_m3) || parseFloat(r.abstraction) || 0), 0) / secondHalf.length;
+          
+          trend = secondAvg - firstAvg;
+        }
+        
+        return {
+          type: 'forecast',
+          simple: true,
+          currentAverage: averageConsumption,
+          trend: trend,
+          projectedConsumption: averageConsumption * 6 + (trend * 3), // 6 months with trend
+          confidence: filteredData.length >= 12 ? 'متوسط' : 'منخفض',
+          dataCount: filteredData.length,
+          note: filteredData.length < 6 ? 
+            'يحتاج المزيد من البيانات للتحليل الدقيق (أقل من 6 قراءات)' : 
+            'تنبؤ مبسط - للحصول على تحليل متقدم يرجى ضمان توفر محرك التنبؤ'
         };
       }
     } catch (error) {
       return {
         type: 'forecast',
         error: 'خطأ في إنشاء التنبؤ: ' + error.message,
-        simple: true
+        simple: true,
+        dataCount: filteredData ? filteredData.length : 0
       };
     }
   }
@@ -2668,23 +3328,54 @@
     }
 
     if (report.simple) {
+      const trendText = report.trend > 0 ? 'ارتفاع' : report.trend < 0 ? 'انخفاض' : 'استقرار';
+      const trendIcon = report.trend > 0 ? '📈' : report.trend < 0 ? '📉' : '📊';
+      const confidenceColor = report.confidence === 'متوسط' ? '#f59e0b' : '#ef4444';
+      
       return `
         <div class="report-header">
-          <h3>🔮 تقرير التنبؤ البسيط</h3>
+          <h3>🔮 تقرير التنبؤ المحسن</h3>
         </div>
         
         <div class="forecast-summary">
           <div class="summary-grid">
             <div class="summary-metric">
               <div class="metric-value">${report.currentAverage.toFixed(2)}</div>
-              <div class="metric-label">متوسط الاستهلاك الحالي (م³)</div>
+              <div class="metric-label">متوسط الاستهلاك الشهري (م³)</div>
             </div>
             <div class="summary-metric">
-              <div class="metric-value">${report.projectedConsumption.toFixed(2)}</div>
-              <div class="metric-label">الاستهلاك المتوقع (6 أشهر)</div>
+              <div class="metric-value">${trendIcon}</div>
+              <div class="metric-label">اتجاه الاستهلاك: ${trendText}</div>
+            </div>
+            <div class="summary-metric">
+              <div class="metric-value" style="color: ${confidenceColor}">${report.confidence}</div>
+              <div class="metric-label">مستوى الثقة</div>
+            </div>
+            <div class="summary-metric">
+              <div class="metric-value">${report.horizon}</div>
+              <div class="metric-label">فترة التنبؤ (أشهر)</div>
             </div>
           </div>
-          <p class="note">${report.note}</p>
+          
+          ${report.predictions && report.predictions.length > 0 ? `
+            <div class="predictions-list">
+              <h4>📊 التنبؤات المستقبلية</h4>
+              ${report.predictions.map(pred => `
+                <div class="prediction-item">
+                  <span>${pred.period}</span>
+                  <span>${pred.value.toFixed(2)} م³</span>
+                  <span class="confidence">ثقة: ${(pred.confidence * 100).toFixed(0)}%</span>
+                </div>
+              `).join('')}
+            </div>
+          ` : ''}
+          
+          <div class="note">
+            <p><strong>عدد القراءات المستخدمة:</strong> ${report.dataCount}</p>
+            <p>${report.note}</p>
+            ${report.trend !== 0 ? `<p><strong>التغيير الشهري المتوقع:</strong> ${report.trend > 0 ? '+' : ''}${report.trend.toFixed(2)} م³</p>` : ''}
+            ${report.seasonality > 0 ? `<p><strong>تأثير الموسمية:</strong> ${report.seasonality.toFixed(2)} م³</p>` : ''}
+          </div>
         </div>
       `;
     }
