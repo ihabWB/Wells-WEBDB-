@@ -2121,5 +2121,511 @@
     await loadWellsToDropdowns();
     await loadWellsForReadingsView(); // Load wells for readings view
     await refreshWells();
+    
+    // Initialize advanced systems
+    initializeAdvancedSystems();
   })();
+
+  // ========= Advanced Systems Integration =========
+  let reportsEngine = null;
+  let predictionEngine = null;
+  let alertSystem = null;
+
+  function initializeAdvancedSystems() {
+    try {
+      // Initialize Reports Engine
+      if (typeof AdvancedReportsEngine !== 'undefined') {
+        reportsEngine = new AdvancedReportsEngine();
+        console.log('✅ محرك التقارير المتقدم تم تهيئته بنجاح');
+      }
+
+      // Initialize Prediction Engine
+      if (typeof PredictionEngine !== 'undefined') {
+        predictionEngine = new PredictionEngine();
+        console.log('✅ محرك التنبؤ تم تهيئته بنجاح');
+      }
+
+      // Initialize Smart Alert System
+      if (typeof SmartAlertSystem !== 'undefined') {
+        alertSystem = new SmartAlertSystem();
+        
+        // Subscribe to alerts
+        alertSystem.subscribe('main_app', (alert) => {
+          displayAlert(alert);
+          updateAlertCounts();
+        });
+        
+        console.log('✅ نظام التنبيهات الذكية تم تهيئته بنجاح');
+      }
+
+      // Initialize event listeners for new features
+      initializeReportsListeners();
+      initializeAlertsListeners();
+      
+    } catch (error) {
+      console.error('خطأ في تهيئة الأنظمة المتقدمة:', error);
+    }
+  }
+
+  // ========= Reports Integration =========
+  function initializeReportsListeners() {
+    // Report type change handler
+    const reportType = document.getElementById('reportType');
+    if (reportType) {
+      reportType.addEventListener('change', handleReportTypeChange);
+    }
+
+    // Report period change handler
+    const reportPeriod = document.getElementById('reportPeriod');
+    if (reportPeriod) {
+      reportPeriod.addEventListener('change', (e) => {
+        const customRange = document.getElementById('customDateRange');
+        if (customRange) {
+          customRange.style.display = e.target.value === 'custom' ? 'block' : 'none';
+        }
+      });
+    }
+
+    // Generate report button
+    const generateReportBtn = document.getElementById('generateReportBtn');
+    if (generateReportBtn) {
+      generateReportBtn.addEventListener('click', generateSelectedReport);
+    }
+
+    // Export report button
+    const exportReportBtn = document.getElementById('exportReportBtn');
+    if (exportReportBtn) {
+      exportReportBtn.addEventListener('click', exportCurrentReport);
+    }
+
+    // Comparison buttons
+    const comparePeriodsBtn = document.getElementById('comparePeriodsBtn');
+    if (comparePeriodsBtn) {
+      comparePeriodsBtn.addEventListener('click', generateComparison);
+    }
+
+    // Forecast buttons
+    const generateForecastBtn = document.getElementById('generateForecastBtn');
+    if (generateForecastBtn) {
+      generateForecastBtn.addEventListener('click', generateForecast);
+    }
+
+    // Scenario tabs
+    document.addEventListener('click', (e) => {
+      if (e.target.classList.contains('scenario-tab')) {
+        handleScenarioTabClick(e.target);
+      }
+    });
+  }
+
+  function handleReportTypeChange() {
+    const reportType = document.getElementById('reportType');
+    const comparisonTools = document.getElementById('comparisonTools');
+    const forecastSection = document.getElementById('forecastSection');
+    
+    if (!reportType) return;
+
+    // Hide all optional sections first
+    if (comparisonTools) comparisonTools.style.display = 'none';
+    if (forecastSection) forecastSection.style.display = 'none';
+
+    // Show relevant sections based on selected type
+    switch (reportType.value) {
+      case 'comparative':
+        if (comparisonTools) comparisonTools.style.display = 'block';
+        break;
+      case 'forecast':
+        if (forecastSection) forecastSection.style.display = 'block';
+        break;
+    }
+  }
+
+  async function generateSelectedReport() {
+    if (!reportsEngine) {
+      showMessage('msgReadings', 'محرك التقارير غير متاح', 'err');
+      return;
+    }
+
+    const reportType = document.getElementById('reportType');
+    const reportPeriod = document.getElementById('reportPeriod');
+    const reportResults = document.getElementById('reportResults');
+    
+    if (!reportType || !reportPeriod || !reportResults) return;
+
+    try {
+      // Show loading state
+      reportResults.innerHTML = '<div class="report-placeholder"><div class="placeholder-icon">⏳</div><h3>جاري إنشاء التقرير...</h3></div>';
+
+      // Get all readings data
+      const allReadings = await getAllReadingsData();
+      
+      if (!allReadings || allReadings.length === 0) {
+        reportResults.innerHTML = '<div class="report-placeholder"><div class="placeholder-icon">📭</div><h3>لا توجد بيانات</h3><p>لا توجد قراءات كافية لإنشاء التقرير</p></div>';
+        return;
+      }
+
+      let reportData = null;
+      const currentDate = new Date();
+      const currentYear = currentDate.getFullYear();
+      const currentMonth = currentDate.getMonth() + 1;
+
+      switch (reportType.value) {
+        case 'monthly':
+          reportData = reportsEngine.generateMonthlyReport(allReadings, currentYear, currentMonth);
+          break;
+        case 'annual':
+          reportData = reportsEngine.generateAnnualReport(allReadings, currentYear);
+          break;
+        case 'wells':
+          reportData = generateWellsAnalysisReport(allReadings);
+          break;
+        default:
+          throw new Error('نوع تقرير غير مدعوم');
+      }
+
+      // Display the report
+      displayReport(reportData, reportType.value);
+      
+    } catch (error) {
+      console.error('خطأ في إنشاء التقرير:', error);
+      reportResults.innerHTML = `<div class="report-placeholder"><div class="placeholder-icon">❌</div><h3>خطأ في إنشاء التقرير</h3><p>${error.message}</p></div>`;
+    }
+  }
+
+  function displayReport(reportData, reportType) {
+    const reportResults = document.getElementById('reportResults');
+    if (!reportResults) return;
+
+    let html = '<div class="report-content">';
+    
+    switch (reportType) {
+      case 'monthly':
+        html += generateMonthlyReportHTML(reportData);
+        break;
+      case 'annual':
+        html += generateAnnualReportHTML(reportData);
+        break;
+      case 'wells':
+        html += generateWellsReportHTML(reportData);
+        break;
+    }
+    
+    html += '</div>';
+    reportResults.innerHTML = html;
+  }
+
+  function generateMonthlyReportHTML(report) {
+    return `
+      <div class="report-header">
+        <h3>📅 التقرير الشهري - ${report.period.monthName} ${report.period.year}</h3>
+      </div>
+      
+      <div class="report-summary">
+        <div class="summary-grid">
+          <div class="summary-metric">
+            <div class="metric-value">${report.summary.totalReadings}</div>
+            <div class="metric-label">إجمالي القراءات</div>
+          </div>
+          <div class="summary-metric">
+            <div class="metric-value">${report.summary.totalConsumption.toFixed(2)}</div>
+            <div class="metric-label">إجمالي الاستهلاك (م³)</div>
+          </div>
+          <div class="summary-metric">
+            <div class="metric-value">${report.summary.activeWells}</div>
+            <div class="metric-label">الآبار النشطة</div>
+          </div>
+          <div class="summary-metric">
+            <div class="metric-value">${(report.summary.dataQualityScore * 100).toFixed(1)}%</div>
+            <div class="metric-label">جودة البيانات</div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="report-recommendations">
+        <h4>📋 التوصيات</h4>
+        <ul>
+          ${report.recommendations.map(rec => `<li><strong>${rec.title}:</strong> ${rec.description}</li>`).join('')}
+        </ul>
+      </div>
+    `;
+  }
+
+  function generateAnnualReportHTML(report) {
+    return `
+      <div class="report-header">
+        <h3>📊 التقرير السنوي - ${report.period.year}</h3>
+      </div>
+      
+      <div class="report-summary">
+        <div class="summary-grid">
+          <div class="summary-metric">
+            <div class="metric-value">${report.summary.totalReadings}</div>
+            <div class="metric-label">إجمالي القراءات</div>
+          </div>
+          <div class="summary-metric">
+            <div class="metric-value">${report.summary.totalConsumption.toFixed(2)}</div>
+            <div class="metric-label">إجمالي الاستهلاك (م³)</div>
+          </div>
+          <div class="summary-metric">
+            <div class="metric-value">${report.summary.averageMonthlyConsumption.toFixed(2)}</div>
+            <div class="metric-label">متوسط الاستهلاك الشهري</div>
+          </div>
+          <div class="summary-metric">
+            <div class="metric-value">${(report.summary.growthRate * 100).toFixed(1)}%</div>
+            <div class="metric-label">معدل النمو</div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="seasonal-analysis">
+        <h4>🌦️ التحليل الموسمي</h4>
+        <div class="seasonal-grid">
+          ${Object.keys(report.seasonalAnalysis).map(season => `
+            <div class="season-card">
+              <h5>${getSeasonName(season)}</h5>
+              <p>الاستهلاك: ${report.seasonalAnalysis[season].totalConsumption.toFixed(2)} م³</p>
+              <p>المتوسط: ${report.seasonalAnalysis[season].averageConsumption.toFixed(2)} م³</p>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  function getSeasonName(season) {
+    const names = {
+      winter: 'الشتاء',
+      spring: 'الربيع', 
+      summer: 'الصيف',
+      autumn: 'الخريف'
+    };
+    return names[season] || season;
+  }
+
+  // ========= Alerts Integration =========
+  function initializeAlertsListeners() {
+    // Refresh alerts button
+    const refreshAlertsBtn = document.getElementById('refreshAlertsBtn');
+    if (refreshAlertsBtn) {
+      refreshAlertsBtn.addEventListener('click', refreshAlerts);
+    }
+
+    // Alert settings button
+    const alertSettingsBtn = document.getElementById('alertSettingsBtn');
+    if (alertSettingsBtn) {
+      alertSettingsBtn.addEventListener('click', () => {
+        const modal = document.getElementById('alertSettingsModal');
+        if (modal) modal.style.display = 'block';
+      });
+    }
+
+    // Alert filter handlers
+    const alertFilter = document.getElementById('alertFilter');
+    const alertTypeFilter = document.getElementById('alertTypeFilter');
+    
+    if (alertFilter) alertFilter.addEventListener('change', filterAlerts);
+    if (alertTypeFilter) alertTypeFilter.addEventListener('change', filterAlerts);
+
+    // Modal handlers
+    setupAlertModalHandlers();
+  }
+
+  function setupAlertModalHandlers() {
+    // Alert settings modal
+    const alertSettingsModal = document.getElementById('alertSettingsModal');
+    const closeAlertSettingsModal = document.getElementById('closeAlertSettingsModal');
+    const saveAlertSettings = document.getElementById('saveAlertSettings');
+    const cancelAlertSettings = document.getElementById('cancelAlertSettings');
+
+    if (closeAlertSettingsModal) {
+      closeAlertSettingsModal.addEventListener('click', () => {
+        if (alertSettingsModal) alertSettingsModal.style.display = 'none';
+      });
+    }
+
+    if (cancelAlertSettings) {
+      cancelAlertSettings.addEventListener('click', () => {
+        if (alertSettingsModal) alertSettingsModal.style.display = 'none';
+      });
+    }
+
+    if (saveAlertSettings) {
+      saveAlertSettings.addEventListener('click', saveAlertSettingsHandler);
+    }
+  }
+
+  async function refreshAlerts() {
+    if (!alertSystem) return;
+
+    try {
+      // Get latest readings data
+      const allReadings = await getAllReadingsData();
+      
+      if (allReadings && allReadings.length > 0) {
+        // Analyze data for alerts
+        const newAlerts = alertSystem.analyzeData(allReadings);
+        
+        // Update the alerts display
+        updateAlertsDisplay();
+        updateAlertCounts();
+        
+        showMessage('msgReadings', `تم تحديث التنبيهات - تم العثور على ${newAlerts.length} تنبيه جديد`, 'ok');
+      }
+    } catch (error) {
+      console.error('خطأ في تحديث التنبيهات:', error);
+      showMessage('msgReadings', 'خطأ في تحديث التنبيهات', 'err');
+    }
+  }
+
+  function updateAlertsDisplay() {
+    if (!alertSystem) return;
+
+    const activeAlerts = alertSystem.getActiveAlerts();
+    const activeAlertsList = document.getElementById('activeAlertsList');
+    
+    if (!activeAlertsList) return;
+
+    if (activeAlerts.length === 0) {
+      activeAlertsList.innerHTML = `
+        <div class="no-alerts-message">
+          <div class="no-alerts-icon">✅</div>
+          <h4>لا توجد تنبيهات نشطة</h4>
+          <p>النظام يعمل بشكل طبيعي - لا توجد مشاكل تتطلب الانتباه</p>
+        </div>
+      `;
+      return;
+    }
+
+    let html = '';
+    activeAlerts.forEach(alert => {
+      html += generateAlertCardHTML(alert);
+    });
+    
+    activeAlertsList.innerHTML = html;
+  }
+
+  function generateAlertCardHTML(alert) {
+    return `
+      <div class="alert-card" data-alert-id="${alert.id}">
+        <div class="alert-icon ${alert.severity}">
+          ${getAlertIcon(alert.type)}
+        </div>
+        <div class="alert-content">
+          <div class="alert-title">${alert.title}</div>
+          <div class="alert-message">${alert.message}</div>
+          <div class="alert-meta">
+            <span>الوقت: ${new Date(alert.timestamp).toLocaleString('ar')}</span>
+            ${alert.wellId ? `<span>البئر: ${alert.wellId}</span>` : ''}
+            <span>الأولوية: ${getSeverityText(alert.severity)}</span>
+          </div>
+          <div class="alert-actions">
+            <button class="alert-btn primary" onclick="acknowledgeAlert('${alert.id}')">تأكيد الاستلام</button>
+            <button class="alert-btn" onclick="viewAlertDetails('${alert.id}')">عرض التفاصيل</button>
+            <button class="alert-btn" onclick="resolveAlert('${alert.id}')">تم الحل</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function getAlertIcon(type) {
+    const icons = {
+      high_consumption: '📈',
+      low_water_level: '⬇️',
+      irregular_pattern: '📊',
+      data_quality: '📋',
+      forecast: '🔮',
+      system: '⚙️'
+    };
+    return icons[type] || '⚠️';
+  }
+
+  function getSeverityText(severity) {
+    const severityTexts = {
+      critical: 'حرج',
+      high: 'عالي',
+      medium: 'متوسط',
+      low: 'منخفض'
+    };
+    return severityTexts[severity] || severity;
+  }
+
+  function updateAlertCounts() {
+    if (!alertSystem) return;
+
+    const activeAlerts = alertSystem.getActiveAlerts();
+    
+    const criticalCount = activeAlerts.filter(a => a.severity === 'critical').length;
+    const warningCount = activeAlerts.filter(a => a.severity === 'high' || a.severity === 'medium').length;
+    const infoCount = activeAlerts.filter(a => a.severity === 'low').length;
+    const resolvedCount = alertSystem.alerts.filter(a => a.status === 'resolved').length;
+
+    // Update count displays
+    const criticalElement = document.getElementById('criticalAlertsCount');
+    const warningElement = document.getElementById('warningAlertsCount');
+    const infoElement = document.getElementById('infoAlertsCount');
+    const resolvedElement = document.getElementById('resolvedAlertsCount');
+
+    if (criticalElement) criticalElement.textContent = criticalCount;
+    if (warningElement) warningElement.textContent = warningCount;
+    if (infoElement) infoElement.textContent = infoCount;
+    if (resolvedElement) resolvedElement.textContent = resolvedCount;
+  }
+
+  // Global functions for alert actions
+  window.acknowledgeAlert = function(alertId) {
+    if (alertSystem) {
+      alertSystem.acknowledgeAlert(alertId);
+      updateAlertsDisplay();
+      updateAlertCounts();
+    }
+  };
+
+  window.resolveAlert = function(alertId) {
+    if (alertSystem) {
+      const resolution = prompt('أدخل تفاصيل الحل:');
+      if (resolution) {
+        alertSystem.resolveAlert(alertId, resolution);
+        updateAlertsDisplay();
+        updateAlertCounts();
+      }
+    }
+  };
+
+  window.viewAlertDetails = function(alertId) {
+    // Implementation for viewing alert details
+    console.log('عرض تفاصيل التنبيه:', alertId);
+  };
+
+  // Helper function to get all readings data
+  async function getAllReadingsData() {
+    if (!supabase) return [];
+    
+    try {
+      const { data, error } = await supabase
+        .from('monthly_readings')
+        .select(`
+          *,
+          wells(well_code, well_name)
+        `)
+        .order('reading_date', { ascending: false });
+      
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('خطأ في جلب بيانات القراءات:', error);
+      return [];
+    }
+  }
+
+  function displayAlert(alert) {
+    // Display alert notification in the UI
+    console.log('تنبيه جديد:', alert);
+    
+    // You can add toast notification or other UI feedback here
+    if (alert.severity === 'critical' || alert.severity === 'high') {
+      // Show immediate notification for critical alerts
+      showMessage('msgReadings', `تنبيه ${getSeverityText(alert.severity)}: ${alert.message}`, 'warn');
+    }
+  }
 })();
