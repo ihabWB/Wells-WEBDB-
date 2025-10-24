@@ -2209,6 +2209,30 @@
     if (generateForecastBtn) {
       generateForecastBtn.addEventListener('click', generateForecast);
     }
+  }
+
+  // Export and comparison functions
+  function exportCurrentReport() {
+    console.log('تصدير التقرير الحالي');
+    // Implementation for exporting current report
+    showMessage('msgReadings', 'سيتم تطبيق ميزة التصدير قريباً', 'ok');
+  }
+
+  function generateComparison() {
+    console.log('إنشاء مقارنة');
+    // Implementation for generating comparison
+    showMessage('msgReadings', 'سيتم تطبيق ميزة المقارنة قريباً', 'ok');
+  }
+
+  function generateForecast() {
+    if (!predictionEngine) {
+      showMessage('msgReadings', 'محرك التنبؤ غير متاح', 'err');
+      return;
+    }
+
+    console.log('إنشاء التنبؤ');
+    // Implementation for generating forecast
+    showMessage('msgReadings', 'سيتم تطبيق ميزة التنبؤ قريباً', 'ok');
 
     // Scenario tabs
     document.addEventListener('click', (e) => {
@@ -2216,6 +2240,37 @@
         handleScenarioTabClick(e.target);
       }
     });
+  }
+
+  function handleScenarioTabClick(tab) {
+    // Remove active class from all scenario tabs
+    document.querySelectorAll('.scenario-tab').forEach(t => t.classList.remove('active'));
+    
+    // Add active class to clicked tab
+    tab.classList.add('active');
+    
+    // Update scenario content based on selected tab
+    const scenario = tab.dataset.scenario;
+    const scenarioContent = document.getElementById('scenarioContent');
+    
+    if (scenarioContent) {
+      scenarioContent.innerHTML = `
+        <div class="scenario-display">
+          <h5>سيناريو ${getScenarioName(scenario)}</h5>
+          <p>سيتم عرض بيانات ${getScenarioName(scenario)} هنا بعد إنشاء التنبؤ</p>
+        </div>
+      `;
+    }
+  }
+
+  function getScenarioName(scenario) {
+    const names = {
+      realistic: 'واقعي',
+      optimistic: 'متفائل',
+      pessimistic: 'متشائم',
+      conservation: 'توفير'
+    };
+    return names[scenario] || scenario;
   }
 
   function handleReportTypeChange() {
@@ -2279,8 +2334,14 @@
         case 'wells':
           reportData = generateWellsAnalysisReport(allReadings);
           break;
+        case 'comparative':
+          reportData = generateBasicComparativeReport(allReadings);
+          break;
+        case 'forecast':
+          reportData = generateBasicForecastReport(allReadings);
+          break;
         default:
-          throw new Error('نوع تقرير غير مدعوم');
+          throw new Error('نوع تقرير غير مدعوم: ' + reportType.value);
       }
 
       // Display the report
@@ -2307,6 +2368,12 @@
         break;
       case 'wells':
         html += generateWellsReportHTML(reportData);
+        break;
+      case 'comparative':
+        html += generateComparativeReportHTML(reportData);
+        break;
+      case 'forecast':
+        html += generateForecastReportHTML(reportData);
         break;
     }
     
@@ -2402,6 +2469,256 @@
     return names[season] || season;
   }
 
+  // Generate missing report functions
+  function generateWellsAnalysisReport(allReadings) {
+    const wellsData = {};
+    
+    allReadings.forEach(reading => {
+      const wellId = reading.wells?.well_code || reading.well_id;
+      if (!wellsData[wellId]) {
+        wellsData[wellId] = {
+          wellId: wellId,
+          wellName: reading.wells?.well_name || 'Unknown',
+          readings: [],
+          totalConsumption: 0,
+          averageConsumption: 0
+        };
+      }
+      wellsData[wellId].readings.push(reading);
+      if (reading.abstraction_m3) {
+        wellsData[wellId].totalConsumption += parseFloat(reading.abstraction_m3) || 0;
+      }
+    });
+
+    // Calculate averages
+    Object.keys(wellsData).forEach(wellId => {
+      const well = wellsData[wellId];
+      well.averageConsumption = well.readings.length > 0 ? well.totalConsumption / well.readings.length : 0;
+    });
+
+    return {
+      type: 'wells_analysis',
+      period: { type: 'all_time' },
+      wells: Object.values(wellsData),
+      summary: {
+        totalWells: Object.keys(wellsData).length,
+        totalReadings: allReadings.length,
+        totalConsumption: Object.values(wellsData).reduce((sum, well) => sum + well.totalConsumption, 0)
+      }
+    };
+  }
+
+  function generateBasicComparativeReport(allReadings) {
+    const currentDate = new Date();
+    const currentMonth = currentDate.getMonth();
+    const currentYear = currentDate.getFullYear();
+    
+    const thisMonth = allReadings.filter(r => {
+      const readingDate = new Date(r.reading_date);
+      return readingDate.getMonth() === currentMonth && readingDate.getFullYear() === currentYear;
+    });
+    
+    const lastMonth = allReadings.filter(r => {
+      const readingDate = new Date(r.reading_date);
+      const lastMonthDate = new Date(currentYear, currentMonth - 1);
+      return readingDate.getMonth() === lastMonthDate.getMonth() && 
+             readingDate.getFullYear() === lastMonthDate.getFullYear();
+    });
+
+    const thisMonthTotal = thisMonth.reduce((sum, r) => sum + (parseFloat(r.abstraction_m3) || 0), 0);
+    const lastMonthTotal = lastMonth.reduce((sum, r) => sum + (parseFloat(r.abstraction_m3) || 0), 0);
+    
+    const change = thisMonthTotal - lastMonthTotal;
+    const changePercent = lastMonthTotal > 0 ? (change / lastMonthTotal) * 100 : 0;
+
+    return {
+      type: 'comparative',
+      period1: { name: 'الشهر الحالي', total: thisMonthTotal, count: thisMonth.length },
+      period2: { name: 'الشهر الماضي', total: lastMonthTotal, count: lastMonth.length },
+      comparison: {
+        change: change,
+        changePercent: changePercent,
+        trend: change > 0 ? 'increase' : change < 0 ? 'decrease' : 'stable'
+      }
+    };
+  }
+
+  function generateBasicForecastReport(allReadings) {
+    try {
+      if (predictionEngine && allReadings.length >= 6) {
+        const forecastData = predictionEngine.predictFutureConsumption(allReadings, 6, 'hybrid');
+        return {
+          type: 'forecast',
+          predictions: forecastData.predictions,
+          accuracy: forecastData.accuracy,
+          confidence: forecastData.confidence,
+          methodology: forecastData.methodology
+        };
+      } else {
+        // Simple trend-based forecast fallback
+        const recentData = allReadings.slice(0, 6);
+        const totalConsumption = recentData.reduce((sum, r) => sum + (parseFloat(r.abstraction_m3) || 0), 0);
+        const averageConsumption = recentData.length > 0 ? totalConsumption / recentData.length : 0;
+        
+        return {
+          type: 'forecast',
+          simple: true,
+          currentAverage: averageConsumption,
+          projectedConsumption: averageConsumption * 6, // 6 months
+          note: 'تنبؤ مبسط - يحتاج المزيد من البيانات للتحليل المتقدم'
+        };
+      }
+    } catch (error) {
+      return {
+        type: 'forecast',
+        error: 'خطأ في إنشاء التنبؤ: ' + error.message,
+        simple: true
+      };
+    }
+  }
+
+  function generateWellsReportHTML(report) {
+    return `
+      <div class="report-header">
+        <h3>🏗️ تحليل الآبار</h3>
+      </div>
+      
+      <div class="report-summary">
+        <div class="summary-grid">
+          <div class="summary-metric">
+            <div class="metric-value">${report.summary.totalWells}</div>
+            <div class="metric-label">إجمالي الآبار</div>
+          </div>
+          <div class="summary-metric">
+            <div class="metric-value">${report.summary.totalReadings}</div>
+            <div class="metric-label">إجمالي القراءات</div>
+          </div>
+          <div class="summary-metric">
+            <div class="metric-value">${report.summary.totalConsumption.toFixed(2)}</div>
+            <div class="metric-label">إجمالي الاستهلاك (م³)</div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="wells-analysis">
+        <h4>📊 تفاصيل الآبار</h4>
+        <div class="wells-grid">
+          ${report.wells.map(well => `
+            <div class="well-card">
+              <h5>${well.wellId} - ${well.wellName}</h5>
+              <p>عدد القراءات: ${well.readings.length}</p>
+              <p>إجمالي الاستهلاك: ${well.totalConsumption.toFixed(2)} م³</p>
+              <p>متوسط الاستهلاك: ${well.averageConsumption.toFixed(2)} م³</p>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  function generateComparativeReportHTML(report) {
+    const trendIcon = report.comparison.trend === 'increase' ? '📈' : 
+                     report.comparison.trend === 'decrease' ? '📉' : '➡️';
+    const trendColor = report.comparison.trend === 'increase' ? '#ef4444' : 
+                      report.comparison.trend === 'decrease' ? '#10b981' : '#6b7280';
+
+    return `
+      <div class="report-header">
+        <h3>🔄 التقرير المقارن</h3>
+      </div>
+      
+      <div class="comparison-summary">
+        <div class="comparison-grid">
+          <div class="period-card">
+            <h4>${report.period1.name}</h4>
+            <div class="period-value">${report.period1.total.toFixed(2)} م³</div>
+            <div class="period-count">${report.period1.count} قراءة</div>
+          </div>
+          
+          <div class="comparison-indicator">
+            <div class="trend-icon" style="color: ${trendColor}">${trendIcon}</div>
+            <div class="change-value" style="color: ${trendColor}">
+              ${report.comparison.change > 0 ? '+' : ''}${report.comparison.change.toFixed(2)} م³
+            </div>
+            <div class="change-percent" style="color: ${trendColor}">
+              ${report.comparison.changePercent > 0 ? '+' : ''}${report.comparison.changePercent.toFixed(1)}%
+            </div>
+          </div>
+          
+          <div class="period-card">
+            <h4>${report.period2.name}</h4>
+            <div class="period-value">${report.period2.total.toFixed(2)} م³</div>
+            <div class="period-count">${report.period2.count} قراءة</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function generateForecastReportHTML(report) {
+    if (report.error) {
+      return `
+        <div class="report-header">
+          <h3>🔮 تقرير التنبؤ</h3>
+        </div>
+        <div class="error-message">
+          <p>${report.error}</p>
+        </div>
+      `;
+    }
+
+    if (report.simple) {
+      return `
+        <div class="report-header">
+          <h3>🔮 تقرير التنبؤ البسيط</h3>
+        </div>
+        
+        <div class="forecast-summary">
+          <div class="summary-grid">
+            <div class="summary-metric">
+              <div class="metric-value">${report.currentAverage.toFixed(2)}</div>
+              <div class="metric-label">متوسط الاستهلاك الحالي (م³)</div>
+            </div>
+            <div class="summary-metric">
+              <div class="metric-value">${report.projectedConsumption.toFixed(2)}</div>
+              <div class="metric-label">الاستهلاك المتوقع (6 أشهر)</div>
+            </div>
+          </div>
+          <p class="note">${report.note}</p>
+        </div>
+      `;
+    }
+
+    return `
+      <div class="report-header">
+        <h3>🔮 تقرير التنبؤ المتقدم</h3>
+      </div>
+      
+      <div class="forecast-summary">
+        <div class="summary-grid">
+          <div class="summary-metric">
+            <div class="metric-value">${(report.confidence * 100).toFixed(1)}%</div>
+            <div class="metric-label">مستوى الثقة</div>
+          </div>
+          <div class="summary-metric">
+            <div class="metric-value">${(report.accuracy * 100).toFixed(1)}%</div>
+            <div class="metric-label">دقة النموذج</div>
+          </div>
+        </div>
+        
+        <div class="predictions-list">
+          <h4>📊 التنبؤات القادمة</h4>
+          ${report.predictions.map((pred, index) => `
+            <div class="prediction-item">
+              <span>الفترة ${index + 1}: ${pred.value.toFixed(2)} م³</span>
+              <span class="confidence">(ثقة: ${(pred.confidence * 100).toFixed(1)}%)</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+
   // ========= Alerts Integration =========
   function initializeAlertsListeners() {
     // Refresh alerts button
@@ -2428,6 +2745,48 @@
 
     // Modal handlers
     setupAlertModalHandlers();
+  }
+
+  function filterAlerts() {
+    console.log('تطبيق فلاتر التنبيهات');
+    // Implementation for filtering alerts based on selected criteria
+    updateAlertsDisplay();
+  }
+
+  function saveAlertSettingsHandler() {
+    console.log('حفظ إعدادات التنبيهات');
+    
+    // Get settings values
+    const highConsumptionThreshold = document.getElementById('highConsumptionThreshold')?.value;
+    const lowWaterThreshold = document.getElementById('lowWaterThreshold')?.value;
+    const irregularPatternThreshold = document.getElementById('irregularPatternThreshold')?.value;
+    const dataQualityThreshold = document.getElementById('dataQualityThreshold')?.value;
+    
+    if (alertSystem) {
+      const newSettings = {
+        thresholds: {
+          highConsumption: {
+            multiplier: parseFloat(highConsumptionThreshold) || 1.5
+          },
+          lowWaterLevel: {
+            percentage: parseInt(lowWaterThreshold) || 30
+          },
+          irregularPattern: {
+            deviationThreshold: parseFloat(irregularPatternThreshold) || 0.8
+          },
+          dataQuality: {
+            minQualityScore: parseInt(dataQualityThreshold) / 100 || 0.6
+          }
+        }
+      };
+      
+      alertSystem.updateSettings(newSettings);
+      showMessage('msgReadings', 'تم حفظ إعدادات التنبيهات بنجاح', 'ok');
+      
+      // Close modal
+      const modal = document.getElementById('alertSettingsModal');
+      if (modal) modal.style.display = 'none';
+    }
   }
 
   function setupAlertModalHandlers() {
