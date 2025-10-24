@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Wells--Database-- (PWA)</title>
+  <title>Wells- V1-Database- (PWA)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#0e7490" />
@@ -39,6 +39,8 @@
     <button class="tab active" data-tab="wells">Wells</button>
     <button class="tab" data-tab="readings">Monthly Readings</button>
     <button class="tab" data-tab="viewReadings">View Readings</button>
+    <button class="tab" data-tab="reports">Reports & Analytics</button>
+    <button class="tab" data-tab="alerts">Smart Alerts</button>
     <button class="tab" data-tab="quality">Water Quality</button>
     <button class="tab" data-tab="maintenance">Maintenance</button>
     <button class="tab" data-tab="service">Service Areas</button>
@@ -699,6 +701,219 @@
       </form>
     </section>
 
+    <!-- ========= Reports & Analytics Section ========= -->
+    <section id="reports" class="panel">
+      <h2>📊 التقارير والتحليلات المتقدمة</h2>
+      
+      <!-- Report Controls -->
+      <div class="report-controls">
+        <div class="control-group">
+          <label>نوع التقرير:</label>
+          <select id="reportType">
+            <option value="monthly">تقرير شهري</option>
+            <option value="annual">تقرير سنوي</option>
+            <option value="comparative">مقارنة زمنية</option>
+            <option value="forecast">تحليل التنبؤ</option>
+            <option value="wells">تحليل الآبار</option>
+          </select>
+        </div>
+        
+        <div class="control-group">
+          <label>الفترة:</label>
+          <select id="reportPeriod">
+            <option value="current">الفترة الحالية</option>
+            <option value="last3">آخر 3 أشهر</option>
+            <option value="last6">آخر 6 أشهر</option>
+            <option value="lastyear">العام الماضي</option>
+            <option value="custom">فترة مخصصة</option>
+          </select>
+        </div>
+        
+        <div class="control-group" id="customDateRange" style="display: none;">
+          <label>من:</label>
+          <input type="date" id="reportStartDate" />
+          <label>إلى:</label>
+          <input type="date" id="reportEndDate" />
+        </div>
+        
+        <div class="control-group">
+          <button id="generateReportBtn" class="btn btn-primary">🔄 إنشاء التقرير</button>
+          <button id="exportReportBtn" class="btn btn-secondary">📥 تصدير</button>
+        </div>
+      </div>
+
+      <!-- Report Results -->
+      <div id="reportResults" class="report-results">
+        <div class="report-placeholder">
+          <div class="placeholder-icon">📈</div>
+          <h3>اختر نوع التقرير والفترة الزمنية</h3>
+          <p>سيتم عرض التحليلات والرسوم البيانية هنا</p>
+        </div>
+      </div>
+
+      <!-- Comparison Tools -->
+      <div id="comparisonTools" class="comparison-section" style="display: none;">
+        <h3>🔄 المقارنات الزمنية</h3>
+        <div class="comparison-controls">
+          <div class="period-selector">
+            <label>الفترة الأولى:</label>
+            <select id="period1Type">
+              <option value="month">شهر</option>
+              <option value="quarter">ربع سنة</option>
+              <option value="year">سنة</option>
+            </select>
+            <input type="month" id="period1Value" />
+          </div>
+          
+          <div class="period-selector">
+            <label>الفترة الثانية:</label>
+            <select id="period2Type">
+              <option value="month">شهر</option>
+              <option value="quarter">ربع سنة</option>
+              <option value="year">سنة</option>
+            </select>
+            <input type="month" id="period2Value" />
+          </div>
+          
+          <button id="comparePeriodsBtn" class="btn btn-primary">📊 قارن</button>
+        </div>
+        
+        <div id="comparisonResults" class="comparison-results"></div>
+      </div>
+
+      <!-- Forecast Section -->
+      <div id="forecastSection" class="forecast-section" style="display: none;">
+        <h3>🔮 التنبؤ والاتجاهات</h3>
+        
+        <div class="forecast-controls">
+          <div class="control-group">
+            <label>فترة التنبؤ:</label>
+            <select id="forecastPeriods">
+              <option value="3">3 أشهر</option>
+              <option value="6">6 أشهر</option>
+              <option value="12">سنة كاملة</option>
+              <option value="24">سنتان</option>
+            </select>
+          </div>
+          
+          <div class="control-group">
+            <label>نموذج التنبؤ:</label>
+            <select id="forecastModel">
+              <option value="hybrid">مختلط (موصى به)</option>
+              <option value="linear">خطي</option>
+              <option value="seasonal">موسمي</option>
+              <option value="exponential">أسي</option>
+            </select>
+          </div>
+          
+          <button id="generateForecastBtn" class="btn btn-primary">🎯 إنشاء التنبؤ</button>
+        </div>
+        
+        <div id="forecastResults" class="forecast-results"></div>
+        
+        <div id="scenarioAnalysis" class="scenario-analysis">
+          <h4>📋 تحليل السيناريوهات</h4>
+          <div class="scenario-tabs">
+            <button class="scenario-tab active" data-scenario="realistic">واقعي</button>
+            <button class="scenario-tab" data-scenario="optimistic">متفائل</button>
+            <button class="scenario-tab" data-scenario="pessimistic">متشائم</button>
+            <button class="scenario-tab" data-scenario="conservation">توفير</button>
+          </div>
+          <div id="scenarioContent" class="scenario-content"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========= Smart Alerts Section ========= -->
+    <section id="alerts" class="panel">
+      <h2>🚨 التنبيهات الذكية</h2>
+      
+      <!-- Alert Dashboard -->
+      <div class="alerts-dashboard">
+        <div class="alert-summary">
+          <div class="summary-card critical">
+            <div class="card-icon">🔴</div>
+            <div class="card-content">
+              <div class="card-value" id="criticalAlertsCount">0</div>
+              <div class="card-label">تنبيهات حرجة</div>
+            </div>
+          </div>
+          
+          <div class="summary-card warning">
+            <div class="card-icon">🟡</div>
+            <div class="card-content">
+              <div class="card-value" id="warningAlertsCount">0</div>
+              <div class="card-label">تحذيرات</div>
+            </div>
+          </div>
+          
+          <div class="summary-card info">
+            <div class="card-icon">🔵</div>
+            <div class="card-content">
+              <div class="card-value" id="infoAlertsCount">0</div>
+              <div class="card-label">إشعارات</div>
+            </div>
+          </div>
+          
+          <div class="summary-card resolved">
+            <div class="card-icon">✅</div>
+            <div class="card-content">
+              <div class="card-value" id="resolvedAlertsCount">0</div>
+              <div class="card-label">تم الحل</div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Alert Controls -->
+        <div class="alert-controls">
+          <div class="control-group">
+            <label>فلترة التنبيهات:</label>
+            <select id="alertFilter">
+              <option value="all">جميع التنبيهات</option>
+              <option value="active">نشطة</option>
+              <option value="critical">حرجة</option>
+              <option value="high">عالية</option>
+              <option value="medium">متوسطة</option>
+              <option value="resolved">تم حلها</option>
+            </select>
+          </div>
+          
+          <div class="control-group">
+            <label>نوع التنبيه:</label>
+            <select id="alertTypeFilter">
+              <option value="all">جميع الأنواع</option>
+              <option value="consumption">استهلاك مرتفع</option>
+              <option value="water_level">مستوى المياه</option>
+              <option value="pattern">أنماط غير منتظمة</option>
+              <option value="data_quality">جودة البيانات</option>
+              <option value="forecast">تنبؤات</option>
+            </select>
+          </div>
+          
+          <button id="refreshAlertsBtn" class="btn btn-primary">🔄 تحديث</button>
+          <button id="alertSettingsBtn" class="btn btn-secondary">⚙️ الإعدادات</button>
+        </div>
+      </div>
+      
+      <!-- Active Alerts List -->
+      <div class="alerts-list">
+        <h3>📋 التنبيهات النشطة</h3>
+        <div id="activeAlertsList" class="alerts-container">
+          <div class="no-alerts-message">
+            <div class="no-alerts-icon">✅</div>
+            <h4>لا توجد تنبيهات نشطة</h4>
+            <p>النظام يعمل بشكل طبيعي - لا توجد مشاكل تتطلب الانتباه</p>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Alert History -->
+      <div class="alert-history">
+        <h3>📚 سجل التنبيهات</h3>
+        <div id="alertHistoryList" class="alerts-container"></div>
+      </div>
+    </section>
+
     <section id="service" class="panel">
       <h2>Add Service Area</h2>
       <form id="formService">
@@ -984,6 +1199,143 @@
       </form>
     </div>
   </div>
+
+  <!-- Alert Settings Modal -->
+  <div id="alertSettingsModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>⚙️ إعدادات التنبيهات</h3>
+        <button type="button" class="modal-close" id="closeAlertSettingsModal">&times;</button>
+      </div>
+      
+      <div class="settings-content">
+        <div class="settings-section">
+          <h4>🔔 حدود التنبيهات</h4>
+          
+          <div class="setting-item">
+            <label>الاستهلاك المرتفع (مضاعف المعدل الطبيعي):</label>
+            <input type="number" id="highConsumptionThreshold" value="1.5" step="0.1" min="1.0" max="3.0" />
+          </div>
+          
+          <div class="setting-item">
+            <label>انخفاض مستوى المياه (%):</label>
+            <input type="number" id="lowWaterThreshold" value="30" min="10" max="50" />
+          </div>
+          
+          <div class="setting-item">
+            <label>النمط غير المنتظم (معامل الانحراف):</label>
+            <input type="number" id="irregularPatternThreshold" value="0.8" step="0.1" min="0.3" max="1.0" />
+          </div>
+          
+          <div class="setting-item">
+            <label>جودة البيانات الدنيا (%):</label>
+            <input type="number" id="dataQualityThreshold" value="60" min="30" max="90" />
+          </div>
+        </div>
+        
+        <div class="settings-section">
+          <h4>📢 إعدادات الإشعارات</h4>
+          
+          <div class="setting-item">
+            <label>
+              <input type="checkbox" id="dashboardNotifications" checked />
+              إشعارات لوحة التحكم
+            </label>
+          </div>
+          
+          <div class="setting-item">
+            <label>
+              <input type="checkbox" id="soundNotifications" checked />
+              الإشعارات الصوتية
+            </label>
+          </div>
+          
+          <div class="setting-item">
+            <label>
+              <input type="checkbox" id="emailNotifications" />
+              الإشعارات بالبريد الإلكتروني
+            </label>
+          </div>
+        </div>
+        
+        <div class="settings-section">
+          <h4>⏰ تكرار الفحص</h4>
+          
+          <div class="setting-item">
+            <label>
+              <input type="checkbox" id="realtimeChecks" checked />
+              الفحص الفوري
+            </label>
+          </div>
+          
+          <div class="setting-item">
+            <label>
+              <input type="checkbox" id="dailyChecks" checked />
+              الفحص اليومي
+            </label>
+          </div>
+          
+          <div class="setting-item">
+            <label>
+              <input type="checkbox" id="weeklyChecks" checked />
+              الفحص الأسبوعي
+            </label>
+          </div>
+        </div>
+      </div>
+      
+      <div class="modal-actions">
+        <button type="button" class="btn-primary" id="saveAlertSettings">💾 حفظ الإعدادات</button>
+        <button type="button" class="btn-secondary" id="resetAlertSettings">🔄 إعادة تعيين</button>
+        <button type="button" class="btn-secondary" id="cancelAlertSettings">إلغاء</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Report Detail Modal -->
+  <div id="reportDetailModal" class="modal modal-large">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="reportDetailTitle">📊 تفاصيل التقرير</h3>
+        <button type="button" class="modal-close" id="closeReportDetailModal">&times;</button>
+      </div>
+      
+      <div class="report-detail-content" id="reportDetailContent">
+        <!-- Content will be dynamically inserted here -->
+      </div>
+      
+      <div class="modal-actions">
+        <button type="button" class="btn-primary" id="exportDetailReportBtn">📥 تصدير التقرير</button>
+        <button type="button" class="btn-secondary" id="printDetailReportBtn">🖨️ طباعة</button>
+        <button type="button" class="btn-secondary" id="closeReportDetail">إغلاق</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Alert Detail Modal -->
+  <div id="alertDetailModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="alertDetailTitle">🚨 تفاصيل التنبيه</h3>
+        <button type="button" class="modal-close" id="closeAlertDetailModal">&times;</button>
+      </div>
+      
+      <div class="alert-detail-content" id="alertDetailContent">
+        <!-- Content will be dynamically inserted here -->
+      </div>
+      
+      <div class="modal-actions">
+        <button type="button" class="btn-primary" id="acknowledgeAlertBtn">✅ تأكيد الاستلام</button>
+        <button type="button" class="btn-primary" id="resolveAlertBtn">✔️ تم الحل</button>
+        <button type="button" class="btn-secondary" id="closeAlertDetail">إغلاق</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script defer src="./advanced-reports.js"></script>
+  <script defer src="./prediction-engine.js"></script>
+  <script defer src="./smart-alerts.js"></script>
 
   <footer>
     <small>Wells PWA -JWC TEAM • Offline capable • Supabase (PostgreSQL)</small>
