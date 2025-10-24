@@ -410,10 +410,35 @@ class AdvancedReportsEngine {
     calculateAnnualSummary(data) {
         const monthly = this.getMonthlyBreakdown(data);
         
+        // Handle empty data cases
+        if (!data || data.length === 0) {
+            return {
+                totalReadings: 0,
+                totalConsumption: 0,
+                averageMonthlyConsumption: 0,
+                peakMonth: { month: 'لا يوجد', consumption: 0 },
+                lowMonth: { month: 'لا يوجد', consumption: 0 },
+                growthRate: 0,
+                dataQualityScore: 0
+            };
+        }
+        
+        if (!monthly || monthly.length === 0) {
+            return {
+                totalReadings: data.length,
+                totalConsumption: this.calculateTotalConsumption(data),
+                averageMonthlyConsumption: 0,
+                peakMonth: { month: 'لا يوجد', consumption: 0 },
+                lowMonth: { month: 'لا يوجد', consumption: 0 },
+                growthRate: 0,
+                dataQualityScore: this.calculateDataQualityScore(data)
+            };
+        }
+        
         return {
             totalReadings: data.length,
             totalConsumption: this.calculateTotalConsumption(data),
-            averageMonthlyConsumption: monthly.reduce((sum, m) => sum + m.consumption, 0) / 12,
+            averageMonthlyConsumption: monthly.reduce((sum, m) => sum + m.consumption, 0) / Math.max(monthly.length, 1),
             peakMonth: monthly.reduce((max, m) => m.consumption > max.consumption ? m : max),
             lowMonth: monthly.reduce((min, m) => m.consumption < min.consumption ? m : min),
             growthRate: this.calculateAnnualGrowthRate(monthly),
@@ -425,7 +450,7 @@ class AdvancedReportsEngine {
         const months = {};
         
         data.forEach(reading => {
-            const date = new Date(reading.readingDate);
+            const date = new Date(reading.reading_date || reading.readingDate);
             const monthKey = date.getMonth() + 1;
             
             if (!months[monthKey]) {
@@ -464,12 +489,21 @@ class AdvancedReportsEngine {
             const seasonMonths = seasons[season];
             const seasonData = monthlyData.filter(m => seasonMonths.includes(m.month));
             
-            seasonalAnalysis[season] = {
-                totalConsumption: seasonData.reduce((sum, m) => sum + m.consumption, 0),
-                averageConsumption: seasonData.reduce((sum, m) => sum + m.consumption, 0) / seasonData.length,
-                peakMonth: seasonData.reduce((max, m) => m.consumption > max.consumption ? m : max, seasonData[0]),
-                trend: this.calculateSeasonalTrend(seasonData)
-            };
+            if (seasonData.length === 0) {
+                seasonalAnalysis[season] = {
+                    totalConsumption: 0,
+                    averageConsumption: 0,
+                    peakMonth: { month: 'لا يوجد', consumption: 0 },
+                    trend: 'غير متوفر'
+                };
+            } else {
+                seasonalAnalysis[season] = {
+                    totalConsumption: seasonData.reduce((sum, m) => sum + m.consumption, 0),
+                    averageConsumption: seasonData.reduce((sum, m) => sum + m.consumption, 0) / seasonData.length,
+                    peakMonth: seasonData.reduce((max, m) => m.consumption > max.consumption ? m : max, seasonData[0]),
+                    trend: this.calculateSeasonalTrend(seasonData)
+                };
+            }
         });
         
         return seasonalAnalysis;
@@ -506,7 +540,12 @@ class AdvancedReportsEngine {
 
     calculateTotalConsumption(data) {
         return data.reduce((total, reading) => {
-            return total + (parseFloat(reading.abstraction) || 0);
+            // استخدام البيانات المُصححة أولاً، ثم الأصلية
+            const correctedValue = parseFloat(reading.corrected_abstraction) || 
+                                 parseFloat(reading.estimated_abstraction) ||
+                                 parseFloat(reading.monthly_abstraction_m3) || 
+                                 parseFloat(reading.abstraction) || 0;
+            return total + correctedValue;
         }, 0);
     }
 
@@ -626,9 +665,17 @@ class TimeSeriesComparison {
     }
 
     calculateMetricValue(data, metric) {
+        if (!data || data.length === 0) return 0;
+        
         switch (metric) {
             case 'consumption':
-                return data.reduce((sum, reading) => sum + (parseFloat(reading.abstraction) || 0), 0);
+                return data.reduce((sum, reading) => {
+                    const value = parseFloat(reading.corrected_abstraction) || 
+                                parseFloat(reading.estimated_abstraction) ||
+                                parseFloat(reading.monthly_abstraction_m3) || 
+                                parseFloat(reading.abstraction) || 0;
+                    return sum + value;
+                }, 0);
             case 'quality':
                 return data.filter(reading => !reading.isEstimated).length / data.length;
             case 'efficiency':
@@ -639,6 +686,8 @@ class TimeSeriesComparison {
     }
 
     calculateEfficiencyScore(data) {
+        if (!data || data.length === 0) return 0;
+        
         // حساب درجة الكفاءة بناءً على عدة عوامل
         const qualityScore = data.filter(reading => !reading.isEstimated).length / data.length;
         const consistencyScore = this.calculateConsistencyScore(data);
@@ -649,8 +698,18 @@ class TimeSeriesComparison {
     calculateConsistencyScore(data) {
         if (data.length < 2) return 1;
         
-        const values = data.map(reading => parseFloat(reading.abstraction) || 0);
+        const values = data.map(reading => {
+            // استخدام البيانات المُصححة أولاً، ثم الأصلية
+            return parseFloat(reading.corrected_abstraction) || 
+                   parseFloat(reading.estimated_abstraction) ||
+                   parseFloat(reading.monthly_abstraction_m3) || 
+                   parseFloat(reading.abstraction) || 0;
+        });
         const mean = values.reduce((sum, val) => sum + val, 0) / values.length;
+        
+        // Handle case where mean is 0
+        if (mean === 0) return 1;
+        
         const variance = values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / values.length;
         const coefficient = Math.sqrt(variance) / mean;
         
