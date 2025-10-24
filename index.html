@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Wells- V1-Database- (PWA)</title>
+  <title>Wells-0013 Database- (PWA)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#0e7490" />
@@ -718,22 +718,121 @@
           </select>
         </div>
         
-        <div class="control-group">
-          <label>الفترة:</label>
-          <select id="reportPeriod">
-            <option value="current">الفترة الحالية</option>
-            <option value="last3">آخر 3 أشهر</option>
-            <option value="last6">آخر 6 أشهر</option>
-            <option value="lastyear">العام الماضي</option>
-            <option value="custom">فترة مخصصة</option>
+        <!-- Monthly Report Filters -->
+        <div id="monthlyFilters" class="control-group" style="display: none;">
+          <label>فترة التقرير الشهري:</label>
+          <select id="monthlyPeriod">
+            <option value="current_month">الشهر الحالي</option>
+            <option value="last_month">الشهر الماضي</option>
+            <option value="last_6_months">آخر 6 أشهر</option>
+            <option value="specific_month">شهر محدد</option>
           </select>
+          <div id="specificMonthPicker" style="display: none; margin-top: 10px;">
+            <input type="month" id="selectedMonth" />
+          </div>
         </div>
         
-        <div class="control-group" id="customDateRange" style="display: none;">
-          <label>من:</label>
-          <input type="date" id="reportStartDate" />
-          <label>إلى:</label>
-          <input type="date" id="reportEndDate" />
+        <!-- Annual Report Filters -->
+        <div id="annualFilters" class="control-group" style="display: none;">
+          <label>فترة التقرير السنوي:</label>
+          <select id="annualPeriod">
+            <option value="current_year">السنة الحالية</option>
+            <option value="last_year">السنة الماضية</option>
+            <option value="specific_year">سنة محددة</option>
+          </select>
+          <div id="specificYearPicker" style="display: none; margin-top: 10px;">
+            <input type="number" id="selectedYear" min="2020" max="2030" placeholder="مثال: 2024" />
+          </div>
+        </div>
+        
+        <!-- Comparative Report Filters -->
+        <div id="comparativeFilters" class="control-group" style="display: none;">
+          <label>نوع المقارنة:</label>
+          <select id="comparisonType">
+            <option value="monthly">مقارنة شهرية</option>
+            <option value="yearly">مقارنة سنوية</option>
+            <option value="custom">مقارنة مخصصة</option>
+          </select>
+          
+          <div id="monthlyComparison" style="display: none; margin-top: 10px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+              <div>
+                <label>الشهر الأول:</label>
+                <input type="month" id="firstMonth" />
+              </div>
+              <div>
+                <label>الشهر الثاني:</label>
+                <input type="month" id="secondMonth" />
+              </div>
+            </div>
+          </div>
+          
+          <div id="yearlyComparison" style="display: none; margin-top: 10px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+              <div>
+                <label>السنة الأولى:</label>
+                <input type="number" id="firstYear" min="2020" max="2030" placeholder="2023" />
+              </div>
+              <div>
+                <label>السنة الثانية:</label>
+                <input type="number" id="secondYear" min="2020" max="2030" placeholder="2024" />
+              </div>
+            </div>
+          </div>
+          
+          <div id="customComparison" style="display: none; margin-top: 10px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+              <div>
+                <label>الفترة الأولى:</label>
+                <input type="date" id="firstPeriodStart" />
+                <input type="date" id="firstPeriodEnd" style="margin-top: 5px;" />
+              </div>
+              <div>
+                <label>الفترة الثانية:</label>
+                <input type="date" id="secondPeriodStart" />
+                <input type="date" id="secondPeriodEnd" style="margin-top: 5px;" />
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Forecast Report Filters -->
+        <div id="forecastFilters" class="control-group" style="display: none;">
+          <label>بيانات التنبؤ:</label>
+          <select id="forecastPeriod">
+            <option value="last_12_months">آخر 12 شهر</option>
+            <option value="last_6_months">آخر 6 أشهر</option>
+            <option value="last_24_months">آخر 24 شهر</option>
+            <option value="custom_period">فترة مخصصة</option>
+          </select>
+          <div id="forecastCustomPeriod" style="display: none; margin-top: 10px;">
+            <input type="date" id="forecastStartDate" placeholder="من" />
+            <input type="date" id="forecastEndDate" placeholder="إلى" style="margin-top: 5px;" />
+          </div>
+          <div style="margin-top: 10px;">
+            <label>فترة التنبؤ:</label>
+            <select id="forecastHorizon">
+              <option value="3">3 أشهر قادمة</option>
+              <option value="6">6 أشهر قادمة</option>
+              <option value="12">12 شهر قادم</option>
+            </select>
+          </div>
+        </div>
+        
+        <!-- Wells Analysis Filters -->
+        <div id="wellsFilters" class="control-group" style="display: none;">
+          <label>نطاق تحليل الآبار:</label>
+          <select id="wellsPeriod">
+            <option value="current_year">السنة الحالية</option>
+            <option value="last_year">السنة الماضية</option>
+            <option value="last_6_months">آخر 6 أشهر</option>
+            <option value="all_time">جميع الفترات</option>
+            <option value="custom">فترة مخصصة</option>
+          </select>
+          <div id="wellsCustomPeriod" style="display: none; margin-top: 10px;">
+            <input type="date" id="wellsStartDate" />
+            <input type="date" id="wellsEndDate" style="margin-top: 5px;" />
+          </div>
         </div>
         
         <div class="control-group">
