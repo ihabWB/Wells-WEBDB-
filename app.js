@@ -2446,6 +2446,10 @@
     const monthlyPeriod = document.getElementById('monthlyPeriod')?.value;
     const now = new Date();
     let startDate, endDate;
+    
+    console.log(`=== التقرير الشهري ===`);
+    console.log(`نوع الفترة: ${monthlyPeriod}`);
+    console.log(`إجمالي البيانات: ${allReadings ? allReadings.length : 'لا توجد'}`);
 
     switch (monthlyPeriod) {
       case 'current_month':
@@ -2465,20 +2469,28 @@
         
       case 'specific_month':
         const selectedMonth = document.getElementById('selectedMonth')?.value;
+        console.log(`الشهر المحدد: ${selectedMonth}`);
         if (selectedMonth) {
           const [year, month] = selectedMonth.split('-');
           startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
           endDate = new Date(parseInt(year), parseInt(month), 0);
+          console.log(`تواريخ محسوبة: من ${startDate.toLocaleDateString('ar')} إلى ${endDate.toLocaleDateString('ar')}`);
         } else {
+          console.warn('لم يتم اختيار شهر محدد، إرجاع جميع البيانات');
           return allReadings;
         }
         break;
         
       default:
+        console.warn('نوع فترة غير معروف، إرجاع جميع البيانات');
         return allReadings;
     }
 
-    return filterDataByDateRange(allReadings, startDate, endDate);
+    console.log(`نطاق التصفية النهائي: من ${startDate} إلى ${endDate}`);
+    const filteredData = filterDataByDateRange(allReadings, startDate, endDate);
+    console.log(`البيانات بعد التصفية: ${filteredData.length} عنصر`);
+    
+    return filteredData;
   }
 
   function getAnnualReportData(allReadings) {
@@ -2673,6 +2685,23 @@
     console.log(`تصفية البيانات من ${startDate.toLocaleDateString('ar')} إلى ${endDate.toLocaleDateString('ar')}`);
     console.log(`إجمالي البيانات للتصفية: ${data.length}`);
     
+    // عرض عينة من البيانات
+    if (data.length > 0) {
+      console.log('أول عنصر بيانات:', data[0]);
+      console.log('مفاتيح البيانات:', Object.keys(data[0]));
+      
+      // عرض عينة من التواريخ
+      const sampleDates = data.slice(0, 3).map((item, index) => {
+        const dateFields = ['reading_date', 'readingDate', 'date', 'measurement_date'];
+        const dates = {};
+        dateFields.forEach(field => {
+          if (item[field]) dates[field] = item[field];
+        });
+        return `عنصر ${index}: ${JSON.stringify(dates)}`;
+      });
+      console.log('عينة التواريخ:', sampleDates);
+    }
+    
     const filteredData = data.filter(reading => {
       // التحقق من جميع أشكال تواريخ القراءة الممكنة
       const dateValue = reading.reading_date || reading.readingDate || reading.date || reading.measurement_date;
@@ -2701,13 +2730,15 @@
       
       const inRange = readingDate >= startDate && readingDate <= endDate;
       if (inRange) {
-        console.log(`قراءة في النطاق: ${dateValue} -> ${readingDate.toLocaleDateString('ar')}`);
+        console.log(`✓ قراءة في النطاق: ${dateValue} -> ${readingDate.toLocaleDateString('ar')}`);
+      } else {
+        console.log(`✗ قراءة خارج النطاق: ${dateValue} -> ${readingDate.toLocaleDateString('ar')}`);
       }
       
       return inRange;
     });
     
-    console.log(`البيانات المصفاة: ${filteredData.length}`);
+    console.log(`البيانات المصفاة: ${filteredData.length} من أصل ${data.length}`);
     return filteredData;
   }
 
@@ -2786,7 +2817,13 @@
           filteredData = getMonthlyReportData(allReadings);
           console.log(`البيانات المصفاة للتقرير الشهري: ${filteredData.length}`);
           if (filteredData.length === 0) {
-            throw new Error('لا توجد بيانات للفترة المحددة');
+            const monthlyPeriod = document.getElementById('monthlyPeriod')?.value || 'غير محدد';
+            const selectedMonth = document.getElementById('selectedMonth')?.value || 'غير محدد';
+            console.error(`لا توجد بيانات للتقرير الشهري:`);
+            console.error(`- نوع الفترة: ${monthlyPeriod}`);
+            console.error(`- الشهر المحدد: ${selectedMonth}`);
+            console.error(`- إجمالي البيانات الأصلية: ${allReadings.length}`);
+            throw new Error(`لا توجد بيانات للفترة المحددة. نوع الفترة: ${monthlyPeriod}, الشهر: ${selectedMonth}`);
           }
           // تمرير البيانات المصفاة مباشرة بدلاً من إعادة التصفية
           const monthInfo = getMonthlyDateInfo();
