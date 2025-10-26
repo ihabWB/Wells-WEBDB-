@@ -2514,20 +2514,56 @@
     
     console.log('🔄 معالجة البيانات للتقارير باستخدام النظام الهرمي...');
     
-    const processedData = data.map(reading => {
+    // أولاً: تطبيق نظام التقدير الذكي (نفس النظام المستخدم في جدول القراءات)
+    console.log('🧠 تطبيق نظام التقدير الذكي على البيانات...');
+    let estimatedData;
+    
+    try {
+      estimatedData = estimateAbstractions(data);
+      console.log(`✅ تم تطبيق نظام التقدير على ${estimatedData.length} قراءة`);
+    } catch (error) {
+      console.warn('⚠️ خطأ في تطبيق نظام التقدير، استخدام البيانات الأصلية:', error);
+      estimatedData = data;
+    }
+    
+    const processedData = estimatedData.map(reading => {
       // إنشاء نسخة من القراءة
       const processedReading = { ...reading };
       
-      // استخدام دالة النظام الهرمي
-      const finalValue = getFinalAbstractionValue(reading);
+      // استخدام دالة النظام الهرمي مع البيانات المُقدرة
+      let finalValue = null;
+      let valueSource = 'original';
+      let valueLabel = 'أصلي';
+      
+      // فحص القيم المُقدرة أولاً (من نظام التقدير)
+      if (reading.hasEstimation && reading.estimatedValue != null) {
+        finalValue = reading.estimatedValue;
+        valueSource = 'estimated_system';
+        valueLabel = 'مُقدر (نظام)';
+      }
+      // ثم فحص القيم من قاعدة البيانات
+      else {
+        const dbValue = getFinalAbstractionValue(reading);
+        finalValue = dbValue.value;
+        valueSource = dbValue.source;
+        valueLabel = dbValue.label;
+      }
       
       // تحديث جميع حقول الاستهلاك بالقيمة النهائية
-      if (finalValue.value != null && !isNaN(finalValue.value)) {
-        processedReading.monthly_abstraction_m3 = finalValue.value;
-        processedReading.abstraction = finalValue.value;
-        processedReading.final_abstraction = finalValue.value;
-        processedReading.value_source = finalValue.source;
-        processedReading.value_label = finalValue.label;
+      if (finalValue != null && !isNaN(finalValue) && finalValue >= 0) {
+        processedReading.monthly_abstraction_m3 = finalValue;
+        processedReading.abstraction = finalValue;
+        processedReading.final_abstraction = finalValue;
+        processedReading.value_source = valueSource;
+        processedReading.value_label = valueLabel;
+        
+        // إضافة معلومات التقدير إذا كانت موجودة
+        if (reading.hasEstimation) {
+          processedReading.is_estimated = true;
+          processedReading.estimation_method = reading.estimationMethod;
+          processedReading.estimation_confidence = reading.confidence;
+          processedReading.original_value = reading.originalValue;
+        }
       }
       
       return processedReading;
@@ -2535,15 +2571,28 @@
     
     console.log(`✅ تم معالجة ${processedData.length} قراءة للتقارير`);
     
-    // إحصائيات مصادر القيم
+    // إحصائيات مصادر القيم المُحسنة
     const sourceCounts = {};
+    const estimationCounts = { estimated: 0, original: 0, outliers: 0 };
+    
     processedData.forEach(reading => {
       if (reading.value_source) {
         sourceCounts[reading.value_source] = (sourceCounts[reading.value_source] || 0) + 1;
       }
+      
+      if (reading.is_estimated) {
+        estimationCounts.estimated++;
+      } else {
+        estimationCounts.original++;
+      }
+      
+      if (reading.isOutlier) {
+        estimationCounts.outliers++;
+      }
     });
     
     console.log('📊 مصادر القيم المستخدمة في التقارير:', sourceCounts);
+    console.log('🔬 إحصائيات التقدير:', estimationCounts);
     
     return processedData;
   }
