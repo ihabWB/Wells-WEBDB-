@@ -2442,6 +2442,46 @@
   }
 
   // New functions for specific report data filtering
+  // دالة لتحديث نطاق الشهور المتاحة في حقل الاختيار
+  function updateAvailableMonthsRange(data) {
+    const selectedMonthInput = document.getElementById('selectedMonth');
+    if (!selectedMonthInput || !data || data.length === 0) return;
+    
+    const availableRange = getAvailableDateRange(data);
+    if (!availableRange) return;
+    
+    // تحديث الحد الأدنى والأقصى لحقل الشهر
+    selectedMonthInput.min = availableRange.minFormatted;
+    selectedMonthInput.max = availableRange.maxFormatted;
+    
+    // إضافة تلميح للمستخدم
+    selectedMonthInput.title = `النطاق المتاح: من ${availableRange.minFormatted} إلى ${availableRange.maxFormatted}`;
+    
+    console.log(`🔄 تم تحديث نطاق الشهور المتاحة: ${availableRange.minFormatted} إلى ${availableRange.maxFormatted}`);
+  }
+
+  // دالة للحصول على نطاق التواريخ المتاحة في البيانات
+  function getAvailableDateRange(data) {
+    if (!data || data.length === 0) return null;
+    
+    const dates = data.map(item => {
+      const dateValue = item.reading_date || item.readingDate || item.date || item.measurement_date;
+      return dateValue ? new Date(dateValue) : null;
+    }).filter(date => date && !isNaN(date.getTime()));
+    
+    if (dates.length === 0) return null;
+    
+    const minDate = new Date(Math.min(...dates));
+    const maxDate = new Date(Math.max(...dates));
+    
+    return {
+      min: minDate,
+      max: maxDate,
+      minFormatted: minDate.toISOString().slice(0, 7), // YYYY-MM format
+      maxFormatted: maxDate.toISOString().slice(0, 7)
+    };
+  }
+
   function getMonthlyReportData(allReadings) {
     const monthlyPeriod = document.getElementById('monthlyPeriod')?.value;
     const now = new Date();
@@ -2450,6 +2490,13 @@
     console.log(`=== التقرير الشهري ===`);
     console.log(`نوع الفترة: ${monthlyPeriod}`);
     console.log(`إجمالي البيانات: ${allReadings ? allReadings.length : 'لا توجد'}`);
+    
+    // عرض نطاق التواريخ المتاحة
+    const availableRange = getAvailableDateRange(allReadings);
+    if (availableRange) {
+      console.log(`📅 نطاق التواريخ المتاحة: من ${availableRange.minFormatted} إلى ${availableRange.maxFormatted}`);
+      console.log(`   التواريخ الكاملة: من ${availableRange.min.toLocaleDateString('ar')} إلى ${availableRange.max.toLocaleDateString('ar')}`);
+    }
 
     switch (monthlyPeriod) {
       case 'current_month':
@@ -2470,6 +2517,19 @@
       case 'specific_month':
         const selectedMonth = document.getElementById('selectedMonth')?.value;
         console.log(`الشهر المحدد: ${selectedMonth}`);
+        
+        // التحقق من توفر البيانات للشهر المحدد
+        if (availableRange && selectedMonth) {
+          const [year, month] = selectedMonth.split('-');
+          const selectedDate = new Date(parseInt(year), parseInt(month) - 1, 15); // منتصف الشهر للمقارنة
+          
+          if (selectedDate < availableRange.min || selectedDate > availableRange.max) {
+            console.warn(`⚠️ الشهر المحدد ${selectedMonth} خارج نطاق البيانات المتاحة (${availableRange.minFormatted} إلى ${availableRange.maxFormatted})`);
+            alert(`الشهر المحدد ${selectedMonth} خارج نطاق البيانات المتاحة.\nالنطاق المتاح: من ${availableRange.minFormatted} إلى ${availableRange.maxFormatted}`);
+            return [];
+          }
+        }
+        
         if (selectedMonth) {
           const [year, month] = selectedMonth.split('-');
           console.log(`تفكيك التاريخ: سنة=${year}, شهر=${month}`);
@@ -3799,6 +3859,27 @@
     
     try {
       console.log('🔄 جاري جلب بيانات القراءات...');
+      
+      // أولاً: فحص إحصائيات من قاعدة البيانات مباشرة
+      console.log('📊 فحص إحصائيات البيانات من قاعدة البيانات...');
+      const { data: statsData, error: statsError } = await supabase
+        .from('monthly_readings')
+        .select('reading_date')
+        .order('reading_date', { ascending: true })
+        .limit(1);
+        
+      const { data: latestData, error: latestError } = await supabase
+        .from('monthly_readings')
+        .select('reading_date')
+        .order('reading_date', { ascending: false })
+        .limit(1);
+        
+      if (statsData && statsData.length > 0 && latestData && latestData.length > 0) {
+        console.log(`📅 أقدم قراءة في قاعدة البيانات: ${statsData[0].reading_date}`);
+        console.log(`📅 أحدث قراءة في قاعدة البيانات: ${latestData[0].reading_date}`);
+      }
+      
+      // ثانياً: جلب كل البيانات
       const { data, error } = await supabase
         .from('monthly_readings')
         .select(`
@@ -3811,18 +3892,73 @@
       
       console.log(`✅ تم جلب ${data ? data.length : 0} قراءة`);
       
+      // تحليل شامل للبيانات المجلبة
+      if (data && data.length > 0) {
+        console.log('📊 تحليل البيانات المجلبة:');
+        
+        // فحص توزيع السنوات
+        const yearCounts = {};
+        const allDates = [];
+        
+        data.forEach(reading => {
+          const dateValue = reading.reading_date || reading.readingDate || reading.date || reading.measurement_date;
+          if (dateValue) {
+            const date = new Date(dateValue);
+            if (!isNaN(date.getTime())) {
+              const year = date.getFullYear();
+              yearCounts[year] = (yearCounts[year] || 0) + 1;
+              allDates.push(date);
+            }
+          }
+        });
+        
+        console.log('📅 توزيع البيانات حسب السنة:', yearCounts);
+        
+        if (allDates.length > 0) {
+          const minDate = new Date(Math.min(...allDates));
+          const maxDate = new Date(Math.max(...allDates));
+          console.log(`📈 النطاق الزمني الكامل: من ${minDate.toLocaleDateString('ar')} إلى ${maxDate.toLocaleDateString('ar')}`);
+          console.log(`📈 النطاق بالسنوات: من ${minDate.getFullYear()} إلى ${maxDate.getFullYear()}`);
+        }
+        
+        updateAvailableMonthsRange(data);
+      }
+      
       // طباعة عينة من البيانات للتصحيح
       if (data && data.length > 0) {
         console.log('عينة من البيانات المجلبة:');
-        data.slice(0, 3).forEach((reading, index) => {
+        data.slice(0, 5).forEach((reading, index) => {
           console.log(`  قراءة ${index + 1}:`, {
+            reading_id: reading.reading_id,
             reading_date: reading.reading_date,
             well_id: reading.well_id,
+            year: reading.year,
+            month: reading.month,
             abstraction: reading.abstraction,
             corrected_abstraction: reading.corrected_abstraction,
-            estimated_abstraction: reading.estimated_abstraction
+            estimated_abstraction: reading.estimated_abstraction,
+            monthly_abstraction_m3: reading.monthly_abstraction_m3
           });
         });
+        
+        // فحص لنوع وتنسيق التواريخ
+        console.log('🔍 فحص تنسيق التواريخ:');
+        const sampleDates = data.slice(0, 10).map((reading, index) => {
+          const dateValue = reading.reading_date;
+          if (dateValue) {
+            const date = new Date(dateValue);
+            return {
+              index: index,
+              raw: dateValue,
+              type: typeof dateValue,
+              parsed: date.toISOString(),
+              valid: !isNaN(date.getTime()),
+              year: date.getFullYear()
+            };
+          }
+          return { index, raw: 'لا يوجد تاريخ' };
+        });
+        console.table(sampleDates);
       }
       
       return data || [];
