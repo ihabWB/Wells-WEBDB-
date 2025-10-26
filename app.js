@@ -3879,17 +3879,51 @@
         console.log(`📅 أحدث قراءة في قاعدة البيانات: ${latestData[0].reading_date}`);
       }
       
-      // ثانياً: جلب كل البيانات (بدون حد أقصى)
+      // ثانياً: جلب كل البيانات بالتدريج للتغلب على حد 1000
       console.log('📥 جاري جلب كامل البيانات من قاعدة البيانات...');
-      const { data, error } = await supabase
-        .from('monthly_readings')
-        .select(`
-          *,
-          wells(well_code, well_name)
-        `)
-        .order('reading_date', { ascending: false });
+      
+      let allData = [];
+      let hasMore = true;
+      let offset = 0;
+      const batchSize = 1000;
+      
+      while (hasMore) {
+        console.log(`📥 جلب الدفعة ${Math.floor(offset/batchSize) + 1} (من ${offset} إلى ${offset + batchSize})...`);
         
-      // فحص إضافي: جلب عدد البيانات الكامل
+        const { data: batchData, error: batchError } = await supabase
+          .from('monthly_readings')
+          .select(`
+            *,
+            wells(well_code, well_name)
+          `)
+          .order('reading_date', { ascending: false })
+          .range(offset, offset + batchSize - 1);
+          
+        if (batchError) {
+          console.error('خطأ في جلب الدفعة:', batchError);
+          break;
+        }
+        
+        if (batchData && batchData.length > 0) {
+          allData.push(...batchData);
+          console.log(`✅ تم جلب ${batchData.length} قراءة في هذه الدفعة (الإجمالي: ${allData.length})`);
+          
+          // إذا كانت الدفعة أقل من الحد الأقصى، فهذا يعني أنها الدفعة الأخيرة
+          if (batchData.length < batchSize) {
+            hasMore = false;
+          } else {
+            offset += batchSize;
+          }
+        } else {
+          hasMore = false;
+        }
+      }
+      
+      console.log(`🎉 تم جلب جميع البيانات: ${allData.length} قراءة`);
+      const data = allData;
+      const error = null;
+        
+      // فحص إضافي: التحقق من اكتمال البيانات
       const { count, error: countError } = await supabase
         .from('monthly_readings')
         .select('*', { count: 'exact', head: true });
@@ -3898,9 +3932,12 @@
         console.log(`📊 إجمالي البيانات في قاعدة البيانات: ${count} قراءة`);
         console.log(`📥 تم جلب: ${data ? data.length : 0} قراءة`);
         
-        if (data && data.length < count) {
-          console.warn(`⚠️ تحذير: تم جلب ${data.length} من أصل ${count} قراءة في قاعدة البيانات`);
-          console.warn('قد يكون هناك حد أقصى مفروض على الاستعلام');
+        if (data && data.length === count) {
+          console.log(`✅ تم جلب جميع البيانات بنجاح!`);
+        } else if (data && data.length < count) {
+          console.warn(`⚠️ تحذير: تم جلب ${data.length} من أصل ${count} قراءة`);
+        } else if (data && data.length > count) {
+          console.warn(`⚠️ غريب: تم جلب ${data.length} ولكن قاعدة البيانات تحتوي على ${count} فقط`);
         }
       }
       
