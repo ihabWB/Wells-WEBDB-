@@ -85,7 +85,12 @@ class AdvancedReportsEngine {
 
     // Add missing analysis methods
     analyzeMonthlyTrends(data) {
-        const consumption = data.map(r => parseFloat(r.abstraction_m3) || 0);
+        const consumption = data.map(r => {
+            return parseFloat(r.corrected_abstraction) || 
+                   parseFloat(r.estimated_abstraction) ||
+                   parseFloat(r.monthly_abstraction_m3) || 
+                   parseFloat(r.abstraction) || 0;
+        });
         const total = consumption.reduce((sum, val) => sum + val, 0);
         const average = consumption.length > 0 ? total / consumption.length : 0;
         
@@ -99,7 +104,7 @@ class AdvancedReportsEngine {
 
     calculateQualityMetrics(data) {
         const totalCount = data.length;
-        const estimatedCount = data.filter(r => r.isEstimated).length;
+        const estimatedCount = data.filter(r => r.isEstimated || r.is_estimated).length;
         
         return {
             totalReadings: totalCount,
@@ -110,7 +115,12 @@ class AdvancedReportsEngine {
     }
 
     analyzeConsumptionPatterns(data) {
-        const consumption = data.map(r => parseFloat(r.abstraction_m3) || 0);
+        const consumption = data.map(r => {
+            return parseFloat(r.corrected_abstraction) || 
+                   parseFloat(r.estimated_abstraction) ||
+                   parseFloat(r.monthly_abstraction_m3) || 
+                   parseFloat(r.abstraction) || 0;
+        });
         const total = consumption.reduce((sum, val) => sum + val, 0);
         const average = consumption.length > 0 ? total / consumption.length : 0;
         const max = Math.max(...consumption);
@@ -674,6 +684,44 @@ class AdvancedReportsEngine {
         };
     }
 
+    calculateAnnualGrowthRate(monthlyData) {
+        if (!monthlyData || monthlyData.length < 2) {
+            return 0;
+        }
+        
+        // Calculate growth rate from first to last month
+        const sortedMonths = monthlyData.sort((a, b) => a.month - b.month);
+        const firstMonth = sortedMonths[0];
+        const lastMonth = sortedMonths[sortedMonths.length - 1];
+        
+        if (firstMonth.consumption === 0) {
+            return 0;
+        }
+        
+        const growthRate = ((lastMonth.consumption - firstMonth.consumption) / firstMonth.consumption) * 100;
+        return Math.round(growthRate * 100) / 100; // Round to 2 decimal places
+    }
+
+    calculateSeasonalTrend(seasonData) {
+        if (!seasonData || seasonData.length < 2) {
+            return 'غير متوفر';
+        }
+        
+        const sortedData = seasonData.sort((a, b) => a.month - b.month);
+        const firstConsumption = sortedData[0].consumption;
+        const lastConsumption = sortedData[sortedData.length - 1].consumption;
+        
+        if (firstConsumption === 0) {
+            return lastConsumption > 0 ? 'متزايد' : 'مستقر';
+        }
+        
+        const change = ((lastConsumption - firstConsumption) / firstConsumption) * 100;
+        
+        if (change > 10) return 'متزايد';
+        if (change < -10) return 'متناقص';
+        return 'مستقر';
+    }
+
     getMonthlyBreakdown(data) {
         console.log('تحليل البيانات الشهرية...');
         const months = {};
@@ -815,21 +863,100 @@ class AdvancedReportsEngine {
     }
 
     countActiveWells(data) {
-        const uniqueWells = new Set(data.map(reading => reading.wellId));
+        const uniqueWells = new Set();
+        data.forEach(reading => {
+            const wellId = reading.well_id || reading.wellId || reading.id || reading.well_number || reading.wellNumber;
+            if (wellId) {
+                uniqueWells.add(wellId);
+            }
+        });
         return uniqueWells.size;
     }
 
     countEstimatedReadings(data) {
-        return data.filter(reading => reading.isEstimated).length;
+        return data.filter(reading => reading.isEstimated || reading.is_estimated).length;
     }
 
     calculateDataQualityScore(data) {
         if (data.length === 0) return 1;
         
-        const actualReadings = data.filter(reading => !reading.isEstimated).length;
+        const actualReadings = data.filter(reading => !reading.isEstimated && !reading.is_estimated).length;
         const totalReadings = data.length;
         
         return actualReadings / totalReadings;
+    }
+
+    getRecentConsumption(wellData) {
+        if (!wellData || wellData.length === 0) return 0;
+        
+        // Get the most recent reading
+        const sortedData = wellData.sort((a, b) => {
+            const dateA = new Date(a.reading_date || a.readingDate);
+            const dateB = new Date(b.reading_date || b.readingDate);
+            return dateB - dateA;
+        });
+        
+        const recentReading = sortedData[0];
+        return parseFloat(recentReading.corrected_abstraction) || 
+               parseFloat(recentReading.estimated_abstraction) ||
+               parseFloat(recentReading.monthly_abstraction_m3) || 
+               parseFloat(recentReading.abstraction) || 0;
+    }
+
+    analyzeConsumptionPattern(wellData) {
+        if (!wellData || wellData.length < 3) {
+            return {
+                irregularityScore: 0,
+                type: 'insufficient_data',
+                anomalies: []
+            };
+        }
+        
+        const consumptions = wellData.map(reading => {
+            return parseFloat(reading.corrected_abstraction) || 
+                   parseFloat(reading.estimated_abstraction) ||
+                   parseFloat(reading.monthly_abstraction_m3) || 
+                   parseFloat(reading.abstraction) || 0;
+        });
+        
+        const mean = consumptions.reduce((sum, val) => sum + val, 0) / consumptions.length;
+        const variance = consumptions.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / consumptions.length;
+        const standardDeviation = Math.sqrt(variance);
+        
+        // Calculate irregularity score based on coefficient of variation
+        const coefficientOfVariation = mean !== 0 ? standardDeviation / mean : 0;
+        
+        return {
+            irregularityScore: coefficientOfVariation,
+            type: coefficientOfVariation > 0.5 ? 'highly_irregular' : 'normal',
+            anomalies: consumptions.filter(val => Math.abs(val - mean) > 2 * standardDeviation)
+        };
+    }
+
+    detectDataQualityIssues(data) {
+        const alerts = [];
+        const qualityScore = this.calculateDataQualityScore(data);
+        
+        if (qualityScore < 0.8) {
+            alerts.push({
+                type: 'data_quality',
+                severity: qualityScore < 0.5 ? 'high' : 'medium',
+                message: `جودة البيانات منخفضة: ${(qualityScore * 100).toFixed(1)}%`,
+                details: {
+                    qualityScore: qualityScore,
+                    estimatedReadings: this.countEstimatedReadings(data),
+                    totalReadings: data.length
+                },
+                timestamp: new Date().toISOString(),
+                recommendations: [
+                    'زيادة عدد القراءات الفعلية',
+                    'مراجعة أجهزة القياس',
+                    'تحسين إجراءات جمع البيانات'
+                ]
+            });
+        }
+        
+        return alerts;
     }
 
     getMonthName(month) {
