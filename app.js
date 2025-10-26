@@ -2644,10 +2644,45 @@
   }
 
   function filterDataByDateRange(data, startDate, endDate) {
-    return data.filter(reading => {
-      const readingDate = new Date(reading.reading_date);
-      return readingDate >= startDate && readingDate <= endDate;
+    console.log(`تصفية البيانات من ${startDate.toLocaleDateString('ar')} إلى ${endDate.toLocaleDateString('ar')}`);
+    console.log(`إجمالي البيانات للتصفية: ${data.length}`);
+    
+    const filteredData = data.filter(reading => {
+      // التحقق من جميع أشكال تواريخ القراءة الممكنة
+      const dateValue = reading.reading_date || reading.readingDate || reading.date || reading.measurement_date;
+      
+      if (!dateValue) {
+        console.log('قراءة بدون تاريخ:', reading);
+        return false;
+      }
+      
+      // تحويل التاريخ إلى كائن Date
+      let readingDate;
+      if (typeof dateValue === 'string') {
+        readingDate = new Date(dateValue);
+      } else if (dateValue instanceof Date) {
+        readingDate = dateValue;
+      } else {
+        console.log('تنسيق تاريخ غير مدعوم:', dateValue);
+        return false;
+      }
+      
+      // التحقق من صحة التاريخ
+      if (isNaN(readingDate.getTime())) {
+        console.log('تاريخ غير صحيح:', dateValue);
+        return false;
+      }
+      
+      const inRange = readingDate >= startDate && readingDate <= endDate;
+      if (inRange) {
+        console.log(`قراءة في النطاق: ${dateValue} -> ${readingDate.toLocaleDateString('ar')}`);
+      }
+      
+      return inRange;
     });
+    
+    console.log(`البيانات المصفاة: ${filteredData.length}`);
+    return filteredData;
   }
 
   function handleReportTypeChange() {
@@ -2723,20 +2758,43 @@
       switch (reportType.value) {
         case 'monthly':
           filteredData = getMonthlyReportData(allReadings);
+          console.log(`البيانات المصفاة للتقرير الشهري: ${filteredData.length}`);
           if (filteredData.length === 0) {
             throw new Error('لا توجد بيانات للفترة المحددة');
           }
+          // تمرير البيانات المصفاة مباشرة بدلاً من إعادة التصفية
           const monthInfo = getMonthlyDateInfo();
-          reportData = reportsEngine.generateMonthlyReport(filteredData, monthInfo.year, monthInfo.month);
+          reportData = {
+            period: { year: monthInfo.year, month: monthInfo.month, monthName: getMonthName(monthInfo.month) },
+            summary: reportsEngine.calculateMonthlySummary(filteredData),
+            trends: reportsEngine.analyzeMonthlyTrends(filteredData),
+            qualityMetrics: reportsEngine.calculateQualityMetrics(filteredData),
+            consumption: reportsEngine.analyzeConsumptionPatterns(filteredData),
+            wells: reportsEngine.analyzeWellsPerformance(filteredData),
+            alerts: reportsEngine.generateMonthlyAlerts(filteredData),
+            recommendations: reportsEngine.generateMonthlyRecommendations(filteredData)
+          };
           break;
           
         case 'annual':
           filteredData = getAnnualReportData(allReadings);
+          console.log(`البيانات المصفاة للتقرير السنوي: ${filteredData.length}`);
           if (filteredData.length === 0) {
             throw new Error('لا توجد بيانات للفترة المحددة');
           }
+          // تمرير البيانات المصفاة مباشرة بدلاً من إعادة التصفية
           const yearInfo = getAnnualDateInfo();
-          reportData = reportsEngine.generateAnnualReport(filteredData, yearInfo.year);
+          reportData = {
+            period: { year: yearInfo.year },
+            summary: reportsEngine.calculateAnnualSummary(filteredData),
+            monthlyBreakdown: reportsEngine.getMonthlyBreakdown(filteredData),
+            seasonalAnalysis: reportsEngine.analyzeSeasonalPatterns(filteredData),
+            trends: reportsEngine.analyzeAnnualTrends(filteredData),
+            performance: reportsEngine.calculateAnnualPerformance(filteredData),
+            forecasting: reportsEngine.generateAnnualForecast(filteredData),
+            achievements: reportsEngine.calculateAchievements(filteredData),
+            recommendations: reportsEngine.generateAnnualRecommendations(filteredData)
+          };
           break;
           
         case 'comparative':
@@ -3649,9 +3707,13 @@
 
   // Helper function to get all readings data
   async function getAllReadingsData() {
-    if (!supabase) return [];
+    if (!supabase) {
+      console.warn('⚠️ Supabase غير متاح');
+      return [];
+    }
     
     try {
+      console.log('🔄 جاري جلب بيانات القراءات...');
       const { data, error } = await supabase
         .from('monthly_readings')
         .select(`
@@ -3661,9 +3723,26 @@
         .order('reading_date', { ascending: false });
       
       if (error) throw error;
+      
+      console.log(`✅ تم جلب ${data ? data.length : 0} قراءة`);
+      
+      // طباعة عينة من البيانات للتصحيح
+      if (data && data.length > 0) {
+        console.log('عينة من البيانات المجلبة:');
+        data.slice(0, 3).forEach((reading, index) => {
+          console.log(`  قراءة ${index + 1}:`, {
+            reading_date: reading.reading_date,
+            well_id: reading.well_id,
+            abstraction: reading.abstraction,
+            corrected_abstraction: reading.corrected_abstraction,
+            estimated_abstraction: reading.estimated_abstraction
+          });
+        });
+      }
+      
       return data || [];
     } catch (error) {
-      console.error('خطأ في جلب بيانات القراءات:', error);
+      console.error('❌ خطأ في جلب بيانات القراءات:', error);
       return [];
     }
   }
@@ -3678,4 +3757,36 @@
       showMessage('msgReadings', `تنبيه ${getSeverityText(alert.severity)}: ${alert.message}`, 'warn');
     }
   }
+
+  // معالجات الفلاتر المخصصة
+  function handleMonthlyPeriodChange() {
+    const monthlyPeriod = document.getElementById('monthlyPeriod');
+    const specificMonthPicker = document.getElementById('specificMonthPicker');
+    
+    if (monthlyPeriod && specificMonthPicker) {
+      if (monthlyPeriod.value === 'specific_month') {
+        specificMonthPicker.style.display = 'block';
+      } else {
+        specificMonthPicker.style.display = 'none';
+      }
+    }
+  }
+
+  function handleAnnualPeriodChange() {
+    const annualPeriod = document.getElementById('annualPeriod');
+    const specificYearPicker = document.getElementById('specificYearPicker');
+    
+    if (annualPeriod && specificYearPicker) {
+      if (annualPeriod.value === 'specific_year') {
+        specificYearPicker.style.display = 'block';
+      } else {
+        specificYearPicker.style.display = 'none';
+      }
+    }
+  }
+
+  // تصدير الدوال للاستخدام العام
+  window.handleReportTypeChange = handleReportTypeChange;
+  window.handleMonthlyPeriodChange = handleMonthlyPeriodChange;
+  window.handleAnnualPeriodChange = handleAnnualPeriodChange;
 })();
