@@ -388,9 +388,17 @@
     return (s || '').toString().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   }
 
-  // Map + EPSG:28191 conversion
+  // Advanced Map System with Multiple Layers and Features
   let map = null;
   let markersLayer = null;
+  let clusterGroup = null;
+  let regionsLayer = null;
+  let networksLayer = null;
+  let monitoringLayer = null;
+  let searchLayer = null;
+  let measurementLayers = null;
+  let currentMeasurementTool = null;
+  let measurementData = { distances: [], areas: [] };
 
   async function ensureMap() {
     if (map) return map;
@@ -398,20 +406,706 @@
       console.warn('Leaflet not loaded');
       return null;
     }
-    // Register EPSG:28191 in proj4 if available
+    return initMap();
+  }
+
+  function initMap() {
+    if (map) return map;
+    
+    // تحديد إعدادات EPSG:28191
     if (typeof proj4 !== 'undefined' && !proj4.defs['EPSG:28191']) {
       proj4.defs('EPSG:28191',
         '+proj=cass +lat_0=31.73439361111111 +lon_0=35.21208055555556 +x_0=170251.555 +y_0=126867.909 +a=6378300.789 +rf=293.4663155389811 +towgs84=-235.41,-85.33,-264.94,0,0,0,0 +units=m +no_defs'
       );
     }
 
-    map = L.map('map', { preferCanvas: true }).setView([31.95, 35.23], 9);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(map);
-    markersLayer = L.layerGroup().addTo(map);
+    console.log('🗺️ تهيئة نظام الخريطة المتقدم...');
+    
+    // إنشاء الخريطة
+    map = L.map('map', { 
+      preferCanvas: true,
+      zoomControl: true,
+      attributionControl: true
+    }).setView([31.95, 35.23], 9);
+
+    // إضافة طبقات الخرائط الأساسية
+    const baseLayers = {
+      'OpenStreetMap': L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors'
+      }),
+      'Satellite': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 19,
+        attribution: '&copy; Esri'
+      }),
+      'Topographic': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 19,
+        attribution: '&copy; Esri'
+      })
+    };
+
+    // إضافة الطبقة الافتراضية
+    baseLayers['OpenStreetMap'].addTo(map);
+
+    // إنشاء طبقات البيانات
+    initializeDataLayers();
+    
+    // إنشاء أدوات التحكم
+    initializeMapControls();
+    
+    // إنشاء أدوات القياس
+    initializeMeasurementTools();
+    
+    // إضافة التحكم في الطبقات
+    L.control.layers(baseLayers, {}).addTo(map);
+    
+    console.log('✅ تم تهيئة نظام الخريطة المتقدم');
     return map;
+  }
+
+  function initializeDataLayers() {
+    // طبقة الآبار مع التجميع
+    if (typeof L.markerClusterGroup !== 'undefined') {
+      clusterGroup = L.markerClusterGroup({
+        chunkedLoading: true,
+        maxClusterRadius: 50,
+        iconCreateFunction: function(cluster) {
+          const count = cluster.getChildCount();
+          let size = 'small';
+          if (count > 50) size = 'large';
+          else if (count > 10) size = 'medium';
+          
+          return L.divIcon({
+            html: '<div><span>' + count + '</span></div>',
+            className: 'marker-cluster marker-cluster-' + size,
+            iconSize: new L.Point(40, 40)
+          });
+        }
+      });
+    } else {
+      clusterGroup = L.layerGroup();
+    }
+    
+    // طبقات أخرى
+    markersLayer = L.layerGroup();
+    regionsLayer = L.layerGroup();
+    networksLayer = L.layerGroup();
+    monitoringLayer = L.layerGroup();
+    searchLayer = L.layerGroup();
+    measurementLayers = L.layerGroup().addTo(map);
+    
+    // إضافة الطبقات للخريطة
+    clusterGroup.addTo(map);
+    markersLayer.addTo(map);
+    
+    console.log('📊 تم إنشاء طبقات البيانات');
+  }
+
+  function initializeMapControls() {
+    // ربط أحداث التحكم في الطبقات
+    const wellsLayerControl = document.getElementById('wellsLayer');
+    if (wellsLayerControl) {
+      wellsLayerControl.addEventListener('change', function(e) {
+        if (e.target.checked) {
+          map.addLayer(clusterGroup);
+        } else {
+          map.removeLayer(clusterGroup);
+        }
+        updateMapStats();
+      });
+    }
+
+    const clustersLayerControl = document.getElementById('clustersLayer');
+    if (clustersLayerControl) {
+      clustersLayerControl.addEventListener('change', function(e) {
+        toggleClustering(e.target.checked);
+      });
+    }
+
+    const regionsLayerControl = document.getElementById('regionsLayer');
+    if (regionsLayerControl) {
+      regionsLayerControl.addEventListener('change', function(e) {
+        if (e.target.checked) {
+          map.addLayer(regionsLayer);
+          loadRegionsData();
+        } else {
+          map.removeLayer(regionsLayer);
+        }
+      });
+    }
+
+    const networksLayerControl = document.getElementById('networksLayer');
+    if (networksLayerControl) {
+      networksLayerControl.addEventListener('change', function(e) {
+        if (e.target.checked) {
+          map.addLayer(networksLayer);
+          loadNetworksData();
+        } else {
+          map.removeLayer(networksLayer);
+        }
+      });
+    }
+
+    const monitoringLayerControl = document.getElementById('monitoringLayer');
+    if (monitoringLayerControl) {
+      monitoringLayerControl.addEventListener('change', function(e) {
+        if (e.target.checked) {
+          map.addLayer(monitoringLayer);
+          loadMonitoringData();
+        } else {
+          map.removeLayer(monitoringLayer);
+        }
+      });
+    }
+
+    // ربط أحداث البحث الجغرافي
+    const searchBtn = document.getElementById('searchLocation');
+    if (searchBtn) searchBtn.addEventListener('click', performGeographicSearch);
+    
+    const clearBtn = document.getElementById('clearSearch');
+    if (clearBtn) clearBtn.addEventListener('click', clearSearch);
+    
+    // ربط أحداث التصفية
+    const statusFilter = document.getElementById('wellStatusFilter');
+    if (statusFilter) statusFilter.addEventListener('change', applyWellFilters);
+    
+    const typeFilter = document.getElementById('wellTypeFilter');
+    if (typeFilter) typeFilter.addEventListener('change', applyWellFilters);
+    
+    console.log('🎛️ تم ربط أدوات التحكم');
+  }
+
+  function initializeMeasurementTools() {
+    const distanceBtn = document.getElementById('measureDistance');
+    if (distanceBtn) {
+      distanceBtn.addEventListener('click', function() {
+        activateMeasurementTool('distance');
+      });
+    }
+
+    const areaBtn = document.getElementById('measureArea');
+    if (areaBtn) {
+      areaBtn.addEventListener('click', function() {
+        activateMeasurementTool('area');
+      });
+    }
+
+    const clearBtn = document.getElementById('clearMeasurements');
+    if (clearBtn) {
+      clearBtn.addEventListener('click', function() {
+        clearAllMeasurements();
+      });
+    }
+  }
+
+  // دوال التجميع
+  function toggleClustering(enabled) {
+    if (!map || !clusterGroup) return;
+    
+    if (enabled) {
+      // نقل العلامات إلى مجموعة التجميع
+      markersLayer.eachLayer(function(layer) {
+        clusterGroup.addLayer(layer);
+      });
+      markersLayer.clearLayers();
+      
+      if (!map.hasLayer(clusterGroup)) {
+        map.addLayer(clusterGroup);
+      }
+    } else {
+      // نقل العلامات من التجميع إلى الطبقة العادية
+      clusterGroup.eachLayer(function(layer) {
+        markersLayer.addLayer(layer);
+      });
+      clusterGroup.clearLayers();
+      
+      if (!map.hasLayer(markersLayer)) {
+        map.addLayer(markersLayer);
+      }
+    }
+    
+    updateMapStats();
+  }
+
+  // دوال البحث الجغرافي
+  function performGeographicSearch() {
+    const searchInput = document.getElementById('locationSearch');
+    const radiusInput = document.getElementById('searchRadius');
+    
+    if (!searchInput || !radiusInput) return;
+    
+    const query = searchInput.value.trim();
+    const radius = parseInt(radiusInput.value) || 1000;
+    
+    if (!query) {
+      alert('يرجى إدخال موقع أو إحداثيات للبحث');
+      return;
+    }
+    
+    console.log(`🔍 البحث عن: ${query} بنصف قطر ${radius} متر`);
+    
+    // تنظيف البحث السابق
+    clearSearch();
+    
+    // محاولة تحويل النص إلى إحداثيات
+    const coords = parseCoordinates(query);
+    if (coords) {
+      performRadiusSearch(coords.lat, coords.lon, radius);
+    } else {
+      // البحث بالاسم (يتطلب خدمة جيوكودنغ)
+      searchByName(query, radius);
+    }
+  }
+
+  function parseCoordinates(input) {
+    // محاولة تحليل الإحداثيات من النص
+    const patterns = [
+      /^(-?\d+\.?\d*),\s*(-?\d+\.?\d*)$/, // lat,lon
+      /^(-?\d+\.?\d*)\s+(-?\d+\.?\d*)$/, // lat lon
+      /^lat:\s*(-?\d+\.?\d*),?\s*lon:\s*(-?\d+\.?\d*)$/i, // lat: X, lon: Y
+    ];
+    
+    for (const pattern of patterns) {
+      const match = input.match(pattern);
+      if (match) {
+        const lat = parseFloat(match[1]);
+        const lon = parseFloat(match[2]);
+        if (lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
+          return { lat, lon };
+        }
+      }
+    }
+    return null;
+  }
+
+  function performRadiusSearch(lat, lon, radius) {
+    // إنشاء دائرة البحث
+    const searchCircle = L.circle([lat, lon], {
+      color: '#007bff',
+      fillColor: '#007bff',
+      fillOpacity: 0.2,
+      radius: radius
+    }).addTo(searchLayer);
+    
+    // إضافة علامة المركز
+    const centerMarker = L.marker([lat, lon], {
+      icon: L.divIcon({
+        className: 'search-center-marker',
+        html: '🎯',
+        iconSize: [20, 20]
+      })
+    }).addTo(searchLayer);
+    
+    // البحث عن الآبار في النطاق
+    const foundWells = [];
+    const searchPoint = L.latLng(lat, lon);
+    
+    (clusterGroup || markersLayer).eachLayer(function(layer) {
+      if (layer.getLatLng) {
+        const distance = searchPoint.distanceTo(layer.getLatLng());
+        if (distance <= radius) {
+          foundWells.push({ layer, distance });
+          // تمييز البئر
+          if (layer.setStyle) {
+            layer.setStyle({ color: '#ff6b6b', fillColor: '#ff6b6b' });
+          }
+        }
+      }
+    });
+    
+    // إضافة طبقة البحث للخريطة
+    if (!map.hasLayer(searchLayer)) {
+      map.addLayer(searchLayer);
+    }
+    
+    // تحديث النتائج
+    updateSearchResults(foundWells.length, radius);
+    
+    // تكبير للمنطقة
+    map.fitBounds(searchCircle.getBounds());
+    
+    console.log(`✅ تم العثور على ${foundWells.length} بئر في نصف قطر ${radius} متر`);
+  }
+
+  function searchByName(name, radius) {
+    // هذه دالة مبسطة - في التطبيق الحقيقي ستحتاج خدمة جيوكودنغ
+    alert('البحث بالاسم يتطلب خدمة جيوكودنغ. يرجى استخدام الإحداثيات مؤقتاً.');
+  }
+
+  function clearSearch() {
+    if (searchLayer) {
+      searchLayer.clearLayers();
+      map.removeLayer(searchLayer);
+    }
+    
+    // إعادة تعيين ألوان الآبار
+    (clusterGroup || markersLayer).eachLayer(function(layer) {
+      if (layer.setStyle) {
+        layer.setStyle({ color: '#3388ff', fillColor: '#3388ff' });
+      }
+    });
+    
+    updateSearchResults(0, 0);
+  }
+
+  function updateSearchResults(count, radius) {
+    const resultsDiv = document.getElementById('measurementResults');
+    if (resultsDiv) {
+      if (count > 0) {
+        resultsDiv.innerHTML = `🔍 تم العثور على ${count} بئر في نصف قطر ${radius} متر`;
+      } else {
+        resultsDiv.innerHTML = '';
+      }
+    }
+  }
+
+  // أدوات القياس
+  function activateMeasurementTool(tool) {
+    // إلغاء تفعيل الأداة السابقة
+    deactivateCurrentTool();
+    
+    currentMeasurementTool = tool;
+    
+    // تمييز الزر النشط
+    document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('active'));
+    
+    if (tool === 'distance') {
+      document.getElementById('measureDistance').classList.add('active');
+      activateDistanceTool();
+    } else if (tool === 'area') {
+      document.getElementById('measureArea').classList.add('active');
+      activateAreaTool();
+    }
+  }
+
+  function activateDistanceTool() {
+    console.log('📏 تفعيل أداة قياس المسافة');
+    
+    let points = [];
+    let currentLine = null;
+    
+    function onMapClick(e) {
+      points.push(e.latlng);
+      
+      // إضافة نقطة
+      const marker = L.circleMarker(e.latlng, {
+        color: '#007bff',
+        fillColor: '#007bff',
+        fillOpacity: 0.8,
+        radius: 5
+      }).addTo(measurementLayers);
+      
+      if (points.length === 1) {
+        // النقطة الأولى
+        updateMeasurementResults('انقر على النقطة الثانية لقياس المسافة');
+      } else if (points.length === 2) {
+        // النقطة الثانية - حساب المسافة
+        const distance = points[0].distanceTo(points[1]);
+        
+        // رسم الخط
+        currentLine = L.polyline(points, {
+          color: '#007bff',
+          weight: 3
+        }).addTo(measurementLayers);
+        
+        // إضافة تسمية المسافة
+        const midPoint = L.latLngBounds(points).getCenter();
+        const distanceText = formatDistance(distance);
+        
+        L.marker(midPoint, {
+          icon: L.divIcon({
+            className: 'distance-label',
+            html: `<div style="background: white; padding: 2px 6px; border-radius: 3px; border: 1px solid #007bff; font-size: 12px;">${distanceText}</div>`,
+            iconSize: [null, null]
+          })
+        }).addTo(measurementLayers);
+        
+        // حفظ القياس
+        measurementData.distances.push({
+          points: [...points],
+          distance: distance,
+          line: currentLine
+        });
+        
+        updateMeasurementResults(`📏 المسافة: ${distanceText}`);
+        
+        // إعادة تعيين للقياس التالي
+        points = [];
+        currentLine = null;
+      }
+    }
+    
+    map.on('click', onMapClick);
+    
+    // حفظ مرجع للتنظيف
+    map._distanceClickHandler = onMapClick;
+  }
+
+  function activateAreaTool() {
+    console.log('📐 تفعيل أداة قياس المساحة');
+    
+    let points = [];
+    let currentPolygon = null;
+    let tempLine = null;
+    
+    function onMapClick(e) {
+      points.push(e.latlng);
+      
+      // إضافة نقطة
+      const marker = L.circleMarker(e.latlng, {
+        color: '#28a745',
+        fillColor: '#28a745',
+        fillOpacity: 0.8,
+        radius: 5
+      }).addTo(measurementLayers);
+      
+      if (points.length === 1) {
+        updateMeasurementResults('انقر لإضافة نقاط أخرى. انقر مزدوجاً لإنهاء القياس');
+      } else if (points.length === 2) {
+        // رسم خط مؤقت
+        tempLine = L.polyline(points, {
+          color: '#28a745',
+          weight: 2,
+          dashArray: '5, 5'
+        }).addTo(measurementLayers);
+      } else {
+        // تحديث الخط المؤقت
+        if (tempLine) {
+          tempLine.setLatLngs(points);
+        }
+      }
+    }
+    
+    function onMapDoubleClick(e) {
+      if (points.length >= 3) {
+        // إنهاء المضلع
+        if (tempLine) {
+          measurementLayers.removeLayer(tempLine);
+        }
+        
+        currentPolygon = L.polygon(points, {
+          color: '#28a745',
+          fillColor: '#28a745',
+          fillOpacity: 0.2,
+          weight: 2
+        }).addTo(measurementLayers);
+        
+        // حساب المساحة
+        const area = calculatePolygonArea(points);
+        const areaText = formatArea(area);
+        
+        // إضافة تسمية المساحة
+        const center = currentPolygon.getBounds().getCenter();
+        L.marker(center, {
+          icon: L.divIcon({
+            className: 'area-label',
+            html: `<div style="background: white; padding: 2px 6px; border-radius: 3px; border: 1px solid #28a745; font-size: 12px;">${areaText}</div>`,
+            iconSize: [null, null]
+          })
+        }).addTo(measurementLayers);
+        
+        // حفظ القياس
+        measurementData.areas.push({
+          points: [...points],
+          area: area,
+          polygon: currentPolygon
+        });
+        
+        updateMeasurementResults(`📐 المساحة: ${areaText}`);
+        
+        // إعادة تعيين
+        points = [];
+        currentPolygon = null;
+        tempLine = null;
+      }
+    }
+    
+    map.on('click', onMapClick);
+    map.on('dblclick', onMapDoubleClick);
+    
+    // حفظ مراجع للتنظيف
+    map._areaClickHandler = onMapClick;
+    map._areaDoubleClickHandler = onMapDoubleClick;
+  }
+
+  function deactivateCurrentTool() {
+    // إزالة مستمعي الأحداث
+    if (map._distanceClickHandler) {
+      map.off('click', map._distanceClickHandler);
+      delete map._distanceClickHandler;
+    }
+    
+    if (map._areaClickHandler) {
+      map.off('click', map._areaClickHandler);
+      delete map._areaClickHandler;
+    }
+    
+    if (map._areaDoubleClickHandler) {
+      map.off('dblclick', map._areaDoubleClickHandler);
+      delete map._areaDoubleClickHandler;
+    }
+    
+    // إزالة تمييز الأزرار
+    document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('active'));
+    
+    currentMeasurementTool = null;
+  }
+
+  function clearAllMeasurements() {
+    if (measurementLayers) {
+      measurementLayers.clearLayers();
+    }
+    
+    measurementData.distances = [];
+    measurementData.areas = [];
+    
+    updateMeasurementResults('تم مسح جميع القياسات');
+    
+    // إلغاء تفعيل الأداة الحالية
+    deactivateCurrentTool();
+  }
+
+  function formatDistance(meters) {
+    if (meters < 1000) {
+      return `${Math.round(meters)} متر`;
+    } else {
+      return `${(meters / 1000).toFixed(2)} كم`;
+    }
+  }
+
+  function formatArea(squareMeters) {
+    if (squareMeters < 10000) {
+      return `${Math.round(squareMeters)} م²`;
+    } else {
+      return `${(squareMeters / 10000).toFixed(2)} هكتار`;
+    }
+  }
+
+  function calculatePolygonArea(points) {
+    // حساب المساحة بالمتر المربع باستخدام صيغة Shoelace
+    let area = 0;
+    const n = points.length;
+    
+    for (let i = 0; i < n; i++) {
+      const j = (i + 1) % n;
+      area += points[i].lat * points[j].lng;
+      area -= points[j].lat * points[i].lng;
+    }
+    
+    area = Math.abs(area) / 2;
+    
+    // تحويل من درجات إلى متر مربع (تقريبي)
+    const latFactor = 111320; // متر لكل درجة عرض
+    const lngFactor = 111320 * Math.cos(points[0].lat * Math.PI / 180); // متر لكل درجة طول
+    
+    return area * latFactor * lngFactor;
+  }
+
+  function updateMeasurementResults(text) {
+    const resultsDiv = document.getElementById('measurementResults');
+    if (resultsDiv) {
+      resultsDiv.innerHTML = text;
+    }
+  }
+
+  // دوال تحميل البيانات للطبقات الإضافية
+  function loadRegionsData() {
+    console.log('🗺️ تحميل بيانات المناطق الإدارية...');
+    // هنا يمكن تحميل بيانات المناطق الإدارية من مصدر خارجي
+    // مثال بسيط:
+    regionsLayer.clearLayers();
+    
+    // مثال على منطقة إدارية
+    const sampleRegion = L.polygon([
+      [31.9, 35.2],
+      [31.95, 35.25],
+      [31.92, 35.28],
+      [31.88, 35.23]
+    ], {
+      color: '#ffc107',
+      fillColor: '#ffc107',
+      fillOpacity: 0.1,
+      weight: 2
+    }).bindPopup('منطقة إدارية تجريبية').addTo(regionsLayer);
+  }
+
+  function loadNetworksData() {
+    console.log('🔗 تحميل بيانات شبكات المياه...');
+    // هنا يمكن تحميل بيانات شبكات المياه
+    networksLayer.clearLayers();
+    
+    // مثال على خط شبكة
+    const sampleNetwork = L.polyline([
+      [31.9, 35.2],
+      [31.92, 35.22],
+      [31.94, 35.24],
+      [31.96, 35.26]
+    ], {
+      color: '#007bff',
+      weight: 4
+    }).bindPopup('خط شبكة مياه رئيسي').addTo(networksLayer);
+  }
+
+  function loadMonitoringData() {
+    console.log('📊 تحميل نقاط المراقبة...');
+    // هنا يمكن تحميل نقاط المراقبة
+    monitoringLayer.clearLayers();
+    
+    // مثال على نقطة مراقبة
+    const monitoringIcon = L.divIcon({
+      html: '📊',
+      className: 'monitoring-point',
+      iconSize: [20, 20]
+    });
+    
+    const sampleMonitoring = L.marker([31.95, 35.23], {
+      icon: monitoringIcon
+    }).bindPopup('نقطة مراقبة جودة المياه').addTo(monitoringLayer);
+  }
+
+  // دوال التصفية
+  function applyWellFilters() {
+    const statusFilter = document.getElementById('wellStatusFilter')?.value;
+    const typeFilter = document.getElementById('wellTypeFilter')?.value;
+    
+    console.log(`🎨 تطبيق تصفية: الحالة=${statusFilter}, النوع=${typeFilter}`);
+    
+    // هنا يمكن تطبيق التصفية على العلامات
+    // هذا مثال بسيط
+    
+    updateMapStats();
+  }
+
+  // دالة تحديث إحصائيات الخريطة
+  function updateMapStats() {
+    const wellsCountEl = document.getElementById('wellsCount');
+    const visibleWellsEl = document.getElementById('visibleWells');
+    const selectedWellsEl = document.getElementById('selectedWells');
+    
+    if (!wellsCountEl || !visibleWellsEl || !selectedWellsEl) return;
+    
+    let totalWells = 0;
+    let visibleWells = 0;
+    
+    // عدد الآبار في طبقة التجميع
+    if (clusterGroup) {
+      totalWells += clusterGroup.getLayers().length;
+      if (map.hasLayer(clusterGroup)) {
+        visibleWells += clusterGroup.getLayers().length;
+      }
+    }
+    
+    // عدد الآبار في الطبقة العادية
+    if (markersLayer) {
+      totalWells += markersLayer.getLayers().length;
+      if (map.hasLayer(markersLayer)) {
+        visibleWells += markersLayer.getLayers().length;
+      }
+    }
+    
+    wellsCountEl.textContent = `الآبار: ${totalWells}`;
+    visibleWellsEl.textContent = `المرئية: ${visibleWells}`;
+    selectedWellsEl.textContent = `المحددة: 0`; // سيتم تحديثها لاحقاً
   }
 
   function toWgs84From28191(x, y) {
@@ -428,41 +1122,171 @@
 
   async function renderMap(existing) {
     if (!map || !supabase) return;
+    
+    console.log('🔄 تحديث خريطة الآبار...');
+    
     let rows = existing;
     if (!Array.isArray(rows)) {
       const { data, error } = await supabase
         .from('wells')
-        .select('well_code, well_name, governorate, district, village, aquifer, x, y')
+        .select('well_code, well_name, governorate, district, village, aquifer, x, y, status, well_type')
         .limit(1000);
       if (error) {
-        console.warn('Map load wells error:', error.message);
+        console.warn('خطأ في تحميل بيانات الآبار للخريطة:', error.message);
         return;
       }
       rows = data || [];
     }
 
-    markersLayer.clearLayers();
+    // تنظيف الطبقات
+    if (markersLayer) markersLayer.clearLayers();
+    if (clusterGroup) clusterGroup.clearLayers();
+    
     const bounds = [];
+    let addedWells = 0;
 
-    for (const w of rows) {
-      if (w == null || w.x == null || w.y == null) continue;
-      const latlon = toWgs84From28191(w.x, w.y);
+    for (const well of rows) {
+      if (well == null || well.x == null || well.y == null) continue;
+      
+      const latlon = toWgs84From28191(well.x, well.y);
       if (!latlon) continue;
+      
       const [lat, lon] = latlon;
-      const popup = `
-        <strong>${esc(w.well_code || '')}</strong>${w.well_name ? ' - ' + esc(w.well_name) : ''}<br/>
-        ${esc([w.governorate, w.district, w.village].filter(Boolean).join(' / '))}<br/>
-        Aquifer: ${esc(w.aquifer || '—')}<br/>
-        <small>Lat: ${lat.toFixed(6)}, Lon: ${lon.toFixed(6)}</small><br/>
-        <a href="https://www.google.com/maps?q=${lat},${lon}" target="_blank" rel="noopener">Open in Google Maps</a>
-      `;
-      L.marker([lat, lon]).bindPopup(popup).addTo(markersLayer);
+      
+      // إنشاء أيقونة حسب حالة البئر
+      const wellIcon = createWellIcon(well);
+      
+      // إنشاء المحتوى المنبثق
+      const popup = createWellPopup(well, lat, lon);
+      
+      // إنشاء العلامة
+      const marker = L.marker([lat, lon], { icon: wellIcon })
+        .bindPopup(popup)
+        .on('click', function() {
+          updateSelectedWells(well);
+        });
+      
+      // إضافة البيانات للعلامة
+      marker.wellData = well;
+      
+      // إضافة للطبقة المناسبة
+      const clustersEnabled = document.getElementById('clustersLayer')?.checked !== false;
+      if (clustersEnabled && clusterGroup) {
+        clusterGroup.addLayer(marker);
+      } else {
+        markersLayer.addLayer(marker);
+      }
+      
       bounds.push([lat, lon]);
+      addedWells++;
     }
 
+    console.log(`✅ تم إضافة ${addedWells} بئر للخريطة`);
+
+    // تكبير للحدود إذا وجدت آبار
     if (bounds.length) {
-      map.fitBounds(bounds, { padding: [18,18] });
+      map.fitBounds(bounds, { padding: [20, 20] });
     }
+    
+    // تحديث الإحصائيات
+    updateMapStats();
+  }
+
+  function createWellIcon(well) {
+    // تحديد اللون حسب الحالة
+    let iconColor = '#3388ff'; // افتراضي
+    let iconClass = 'well-marker-active';
+    
+    if (well.status) {
+      switch (well.status.toLowerCase()) {
+        case 'active':
+          iconColor = '#28a745';
+          iconClass = 'well-marker-active';
+          break;
+        case 'inactive':
+          iconColor = '#dc3545';
+          iconClass = 'well-marker-inactive';
+          break;
+        case 'maintenance':
+          iconColor = '#ffc107';
+          iconClass = 'well-marker-maintenance';
+          break;
+      }
+    }
+    
+    // تحديد الرمز حسب النوع
+    let iconSymbol = '🔵';
+    if (well.well_type) {
+      switch (well.well_type.toLowerCase()) {
+        case 'domestic':
+          iconSymbol = '🏠';
+          break;
+        case 'agricultural':
+          iconSymbol = '🌾';
+          break;
+        case 'industrial':
+          iconSymbol = '🏭';
+          break;
+      }
+    }
+    
+    return L.divIcon({
+      html: `<div class="${iconClass}" style="
+        background-color: ${iconColor}; 
+        border: 2px solid ${iconColor}; 
+        border-radius: 50%; 
+        width: 20px; 
+        height: 20px; 
+        display: flex; 
+        align-items: center; 
+        justify-content: center;
+        font-size: 10px;
+        color: white;
+      ">${iconSymbol}</div>`,
+      className: 'custom-well-marker',
+      iconSize: [20, 20],
+      iconAnchor: [10, 10]
+    });
+  }
+
+  function createWellPopup(well, lat, lon) {
+    const status = well.status ? `<span class="status-${well.status.toLowerCase()}">${well.status}</span>` : 'غير محدد';
+    const wellType = well.well_type || 'غير محدد';
+    
+    return `
+      <div class="well-popup">
+        <strong>${esc(well.well_code || 'غير محدد')}</strong>
+        ${well.well_name ? '<br/><em>' + esc(well.well_name) + '</em>' : ''}
+        <hr style="margin: 8px 0;"/>
+        <div class="popup-details">
+          <div>📍 ${esc([well.governorate, well.district, well.village].filter(Boolean).join(' / ') || 'غير محدد')}</div>
+          <div>🌊 طبقة المياه: ${esc(well.aquifer || 'غير محدد')}</div>
+          <div>📊 الحالة: ${status}</div>
+          <div>🏷️ النوع: ${wellType}</div>
+          <div class="coordinates">
+            📐 ${lat.toFixed(6)}, ${lon.toFixed(6)}
+          </div>
+        </div>
+        <div class="popup-actions">
+          <a href="https://www.google.com/maps?q=${lat},${lon}" target="_blank" rel="noopener" class="popup-link">
+            🗺️ فتح في خرائط جوجل
+          </a>
+          <button onclick="selectWellForDetails('${well.well_code}')" class="popup-btn">
+            📊 عرض التفاصيل
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  function updateSelectedWells(well) {
+    // هنا يمكن إضافة منطق لتتبع الآبار المحددة
+    console.log('تم تحديد البئر:', well.well_code);
+  }
+
+  function selectWellForDetails(wellCode) {
+    // هنا يمكن إضافة منطق لعرض تفاصيل البئر
+    console.log('عرض تفاصيل البئر:', wellCode);
   }
 
   // View Readings functionality
