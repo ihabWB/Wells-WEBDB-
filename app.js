@@ -2482,6 +2482,72 @@
     };
   }
 
+  // دالة للحصول على القيمة النهائية باستخدام النظام الهرمي
+  function getFinalAbstractionValue(reading) {
+    // النظام الهرمي: corrected > estimated > monthly > abstraction
+    if (reading.corrected_abstraction != null && reading.corrected_abstraction !== '') {
+      const value = parseFloat(reading.corrected_abstraction);
+      return { value, source: 'corrected', label: 'مُصحح' };
+    }
+    
+    if (reading.estimated_abstraction != null && reading.estimated_abstraction !== '') {
+      const value = parseFloat(reading.estimated_abstraction);
+      return { value, source: 'estimated', label: 'مُقدر' };
+    }
+    
+    if (reading.monthly_abstraction_m3 != null && reading.monthly_abstraction_m3 !== '') {
+      const value = parseFloat(reading.monthly_abstraction_m3);
+      return { value, source: 'monthly', label: 'شهري' };
+    }
+    
+    if (reading.abstraction != null && reading.abstraction !== '') {
+      const value = parseFloat(reading.abstraction);
+      return { value, source: 'base', label: 'أساسي' };
+    }
+    
+    return { value: null, source: 'none', label: 'غير متوفر' };
+  }
+
+  // دالة لمعالجة البيانات واستخدام النظام الهرمي للقيم قبل إرسالها للتقارير
+  function processDataForReports(data) {
+    if (!data || !Array.isArray(data)) return [];
+    
+    console.log('🔄 معالجة البيانات للتقارير باستخدام النظام الهرمي...');
+    
+    const processedData = data.map(reading => {
+      // إنشاء نسخة من القراءة
+      const processedReading = { ...reading };
+      
+      // استخدام دالة النظام الهرمي
+      const finalValue = getFinalAbstractionValue(reading);
+      
+      // تحديث جميع حقول الاستهلاك بالقيمة النهائية
+      if (finalValue.value != null && !isNaN(finalValue.value)) {
+        processedReading.monthly_abstraction_m3 = finalValue.value;
+        processedReading.abstraction = finalValue.value;
+        processedReading.final_abstraction = finalValue.value;
+        processedReading.value_source = finalValue.source;
+        processedReading.value_label = finalValue.label;
+      }
+      
+      return processedReading;
+    });
+    
+    console.log(`✅ تم معالجة ${processedData.length} قراءة للتقارير`);
+    
+    // إحصائيات مصادر القيم
+    const sourceCounts = {};
+    processedData.forEach(reading => {
+      if (reading.value_source) {
+        sourceCounts[reading.value_source] = (sourceCounts[reading.value_source] || 0) + 1;
+      }
+    });
+    
+    console.log('📊 مصادر القيم المستخدمة في التقارير:', sourceCounts);
+    
+    return processedData;
+  }
+
   function getMonthlyReportData(allReadings) {
     const monthlyPeriod = document.getElementById('monthlyPeriod')?.value;
     const now = new Date();
@@ -2894,17 +2960,21 @@
             console.error(`- إجمالي البيانات الأصلية: ${allReadings.length}`);
             throw new Error(`لا توجد بيانات للفترة المحددة. نوع الفترة: ${monthlyPeriod}, الشهر: ${selectedMonth}`);
           }
-          // تمرير البيانات المصفاة مباشرة بدلاً من إعادة التصفية
+          
+          // معالجة البيانات للتقارير باستخدام النظام الهرمي
+          const processedMonthlyData = processDataForReports(filteredData);
+          
+          // تمرير البيانات المُعالجة مباشرة بدلاً من إعادة التصفية
           const monthInfo = getMonthlyDateInfo();
           reportData = {
             period: { year: monthInfo.year, month: monthInfo.month, monthName: getMonthName(monthInfo.month) },
-            summary: reportsEngine.calculateMonthlySummary(filteredData),
-            trends: reportsEngine.analyzeMonthlyTrends(filteredData),
-            qualityMetrics: reportsEngine.calculateQualityMetrics(filteredData),
-            consumption: reportsEngine.analyzeConsumptionPatterns(filteredData),
-            wells: reportsEngine.analyzeWellsPerformance(filteredData),
-            alerts: reportsEngine.generateMonthlyAlerts(filteredData),
-            recommendations: reportsEngine.generateMonthlyRecommendations(filteredData)
+            summary: reportsEngine.calculateMonthlySummary(processedMonthlyData),
+            trends: reportsEngine.analyzeMonthlyTrends(processedMonthlyData),
+            qualityMetrics: reportsEngine.calculateQualityMetrics(processedMonthlyData),
+            consumption: reportsEngine.analyzeConsumptionPatterns(processedMonthlyData),
+            wells: reportsEngine.analyzeWellsPerformance(processedMonthlyData),
+            alerts: reportsEngine.generateMonthlyAlerts(processedMonthlyData),
+            recommendations: reportsEngine.generateMonthlyRecommendations(processedMonthlyData)
           };
           break;
           
@@ -2914,23 +2984,29 @@
           if (filteredData.length === 0) {
             throw new Error('لا توجد بيانات للفترة المحددة');
           }
-          // تمرير البيانات المصفاة مباشرة بدلاً من إعادة التصفية
+          
+          // معالجة البيانات للتقارير باستخدام النظام الهرمي
+          const processedAnnualData = processDataForReports(filteredData);
+          
+          // تمرير البيانات المُعالجة مباشرة بدلاً من إعادة التصفية
           const yearInfo = getAnnualDateInfo();
           reportData = {
             period: { year: yearInfo.year },
-            summary: reportsEngine.calculateAnnualSummary(filteredData),
-            monthlyBreakdown: reportsEngine.getMonthlyBreakdown(filteredData),
-            seasonalAnalysis: reportsEngine.analyzeSeasonalPatterns(filteredData),
-            trends: reportsEngine.analyzeAnnualTrends(filteredData),
-            performance: reportsEngine.calculateAnnualPerformance(filteredData),
-            forecasting: reportsEngine.generateAnnualForecast(filteredData),
-            achievements: reportsEngine.calculateAchievements(filteredData),
-            recommendations: reportsEngine.generateAnnualRecommendations(filteredData)
+            summary: reportsEngine.calculateAnnualSummary(processedAnnualData),
+            monthlyBreakdown: reportsEngine.getMonthlyBreakdown(processedAnnualData),
+            seasonalAnalysis: reportsEngine.analyzeSeasonalPatterns(processedAnnualData),
+            trends: reportsEngine.analyzeAnnualTrends(processedAnnualData),
+            performance: reportsEngine.calculateAnnualPerformance(processedAnnualData),
+            forecasting: reportsEngine.generateAnnualForecast(processedAnnualData),
+            achievements: reportsEngine.calculateAchievements(processedAnnualData),
+            recommendations: reportsEngine.generateAnnualRecommendations(processedAnnualData)
           };
           break;
           
         case 'comparative':
-          reportData = generateComparativeReport(allReadings);
+          // معالجة البيانات للتقارير باستخدام النظام الهرمي
+          const processedComparativeData = processDataForReports(allReadings);
+          reportData = generateComparativeReport(processedComparativeData);
           break;
           
         case 'forecast':
@@ -2938,12 +3014,18 @@
           if (filteredData.length < 3) {
             throw new Error('البيانات غير كافية للتنبؤ - يحتاج على الأقل 3 قراءات');
           }
-          reportData = generateAdvancedForecastReport(filteredData);
+          
+          // معالجة البيانات للتقارير باستخدام النظام الهرمي
+          const processedForecastData = processDataForReports(filteredData);
+          reportData = generateAdvancedForecastReport(processedForecastData);
           break;
           
         case 'wells':
           filteredData = getWellsReportData(allReadings);
-          reportData = generateWellsAnalysisReport(filteredData);
+          
+          // معالجة البيانات للتقارير باستخدام النظام الهرمي
+          const processedWellsData = processDataForReports(filteredData);
+          reportData = generateWellsAnalysisReport(processedWellsData);
           break;
           
         default:
