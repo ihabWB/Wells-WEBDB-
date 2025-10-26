@@ -12,7 +12,7 @@ class PredictionEngine {
         // إعدادات النماذج المختلفة
         this.modelSettings = {
             linearRegression: {
-                minDataPoints: 6,
+                minDataPoints: 3, // تقليل الحد الأدنى ليعمل مع البيانات المحدودة
                 confidenceThreshold: 0.7
             },
             seasonalDecomposition: {
@@ -29,42 +29,60 @@ class PredictionEngine {
 
     // ========= التنبؤ بالاستهلاك المستقبلي =========
     predictFutureConsumption(historicalData, forecastPeriods = 6, modelType = 'hybrid') {
-        const preparedData = this.prepareDataForPrediction(historicalData);
-        
-        let predictions = [];
-        
-        switch (modelType) {
-            case 'linear':
-                predictions = this.linearRegressionForecast(preparedData, forecastPeriods);
-                break;
-            case 'seasonal':
-                predictions = this.seasonalForecast(preparedData, forecastPeriods);
-                break;
-            case 'exponential':
-                predictions = this.exponentialSmoothingForecast(preparedData, forecastPeriods);
-                break;
-            case 'hybrid':
-                predictions = this.hybridForecast(preparedData, forecastPeriods);
-                break;
-            default:
-                predictions = this.hybridForecast(preparedData, forecastPeriods);
-        }
+        try {
+            const preparedData = this.prepareDataForPrediction(historicalData);
+            
+            // التحقق من وجود بيانات كافية
+            if (!preparedData || preparedData.length === 0) {
+                throw new Error('لا توجد بيانات صالحة للتنبؤ');
+            }
+            
+            if (preparedData.length < 2) {
+                throw new Error('البيانات غير كافية للتنبؤ - يحتاج على الأقل قراءتين صحيحتين');
+            }
+            
+            console.log(`تحضير البيانات للتنبؤ: ${preparedData.length} قراءة صالحة من أصل ${historicalData.length}`);
+            
+            let predictions = [];
+            
+            switch (modelType) {
+                case 'linear':
+                    predictions = this.linearRegressionForecast(preparedData, forecastPeriods);
+                    break;
+                case 'seasonal':
+                    predictions = this.seasonalForecast(preparedData, forecastPeriods);
+                    break;
+                case 'exponential':
+                    predictions = this.exponentialSmoothingForecast(preparedData, forecastPeriods);
+                    break;
+                case 'hybrid':
+                    predictions = this.hybridForecast(preparedData, forecastPeriods);
+                    break;
+                default:
+                    predictions = this.hybridForecast(preparedData, forecastPeriods);
+            }
 
-        return {
-            predictions: predictions,
-            accuracy: this.calculateModelAccuracy(preparedData, modelType),
-            confidence: this.calculatePredictionConfidence(predictions),
-            methodology: this.getMethodologyExplanation(modelType),
-            recommendations: this.generatePredictionRecommendations(predictions)
-        };
+            return {
+                predictions: predictions,
+                accuracy: this.calculateModelAccuracy(preparedData, modelType),
+                confidence: this.calculatePredictionConfidence(predictions),
+                methodology: this.getMethodologyExplanation(modelType),
+                recommendations: this.generatePredictionRecommendations(predictions)
+            };
+        } catch (error) {
+            console.error('خطأ في التنبؤ:', error);
+            throw new Error('فشل في إنشاء التنبؤ: ' + error.message);
+        }
     }
 
     // ========= النموذج الخطي =========
     linearRegressionForecast(data, periods) {
         if (data.length < this.modelSettings.linearRegression.minDataPoints) {
-            throw new Error('البيانات غير كافية للتنبؤ الخطي');
+            throw new Error(`البيانات غير كافية للتنبؤ الخطي - يحتاج ${this.modelSettings.linearRegression.minDataPoints} قراءات على الأقل، متوفر ${data.length}`);
         }
 
+        console.log(`تطبيق التنبؤ الخطي على ${data.length} قراءة لمدة ${periods} فترة`);
+        
         const trend = this.calculateLinearTrend(data);
         const predictions = [];
 
@@ -137,9 +155,48 @@ class PredictionEngine {
     // ========= النموذج المختلط =========
     hybridForecast(data, periods) {
         try {
-            const linearPred = this.linearRegressionForecast(data, periods);
-            const seasonalPred = this.seasonalForecast(data, periods);
-            const expPred = this.exponentialSmoothingForecast(data, periods);
+            console.log(`تطبيق التنبؤ المختلط على ${data.length} قراءة لمدة ${periods} فترة`);
+            
+            // التحقق من الحد الأدنى للبيانات
+            if (data.length < 2) {
+                throw new Error(`البيانات غير كافية للتنبؤ المختلط - يحتاج قراءتين على الأقل، متوفر ${data.length}`);
+            }
+            
+            let linearPred = null;
+            let seasonalPred = null;
+            let expPred = null;
+            
+            // محاولة التنبؤ الخطي
+            try {
+                linearPred = this.linearRegressionForecast(data, periods);
+                console.log('✓ التنبؤ الخطي نجح');
+            } catch (error) {
+                console.warn('التنبؤ الخطي فشل:', error.message);
+            }
+            
+            // محاولة التنبؤ الموسمي
+            try {
+                seasonalPred = this.seasonalForecast(data, periods);
+                console.log('✓ التنبؤ الموسمي نجح');
+            } catch (error) {
+                console.warn('التنبؤ الموسمي فشل:', error.message);
+            }
+            
+            // محاولة التنبؤ الأسي
+            try {
+                expPred = this.exponentialSmoothingForecast(data, periods);
+                console.log('✓ التنبؤ الأسي نجح');
+            } catch (error) {
+                console.warn('التنبؤ الأسي فشل:', error.message);
+            }
+            
+            // التحقق من وجود نموذج واحد على الأقل
+            const availableModels = [linearPred, seasonalPred, expPred].filter(pred => pred !== null);
+            if (availableModels.length === 0) {
+                throw new Error('جميع نماذج التنبؤ فشلت - البيانات غير كافية');
+            }
+            
+            console.log(`استخدام ${availableModels.length} نموذج/نماذج للتنبؤ المختلط`);
 
             const predictions = [];
 
@@ -147,25 +204,44 @@ class PredictionEngine {
                 // حساب الوزن لكل نموذج بناءً على الأداء
                 const weights = this.calculateModelWeights(data);
                 
-                const combinedValue = 
-                    (linearPred[i].value * weights.linear) +
-                    (seasonalPred[i].value * weights.seasonal) +
-                    (expPred[i].value * weights.exponential);
-
-                const combinedConfidence = 
-                    (linearPred[i].confidence * weights.linear) +
-                    (seasonalPred[i].confidence * weights.seasonal) +
-                    (expPred[i].confidence * weights.exponential);
+                let combinedValue = 0;
+                let combinedConfidence = 0;
+                let totalWeight = 0;
+                
+                const components = {};
+                
+                if (linearPred) {
+                    combinedValue += linearPred[i].value * weights.linear;
+                    combinedConfidence += linearPred[i].confidence * weights.linear;
+                    totalWeight += weights.linear;
+                    components.linear = linearPred[i].value;
+                }
+                
+                if (seasonalPred) {
+                    combinedValue += seasonalPred[i].value * weights.seasonal;
+                    combinedConfidence += seasonalPred[i].confidence * weights.seasonal;
+                    totalWeight += weights.seasonal;
+                    components.seasonal = seasonalPred[i].value;
+                }
+                
+                if (expPred) {
+                    combinedValue += expPred[i].value * weights.exponential;
+                    combinedConfidence += expPred[i].confidence * weights.exponential;
+                    totalWeight += weights.exponential;
+                    components.exponential = expPred[i].value;
+                }
+                
+                // تطبيع النتائج
+                if (totalWeight > 0) {
+                    combinedValue /= totalWeight;
+                    combinedConfidence /= totalWeight;
+                }
 
                 predictions.push({
                     period: data.length + i + 1,
                     value: Math.max(0, combinedValue),
                     confidence: combinedConfidence,
-                    components: {
-                        linear: linearPred[i].value,
-                        seasonal: seasonalPred[i].value,
-                        exponential: expPred[i].value
-                    },
+                    components: components,
                     weights: weights,
                     method: 'hybrid_ensemble'
                 });
@@ -173,8 +249,8 @@ class PredictionEngine {
 
             return predictions;
         } catch (error) {
-            console.warn('فشل النموذج المختلط، استخدام النموذج الخطي كبديل');
-            return this.linearRegressionForecast(data, periods);
+            console.error('خطأ في التنبؤ المختلط:', error);
+            throw new Error('فشل التنبؤ المختلط: ' + error.message);
         }
     }
 
@@ -288,13 +364,35 @@ class PredictionEngine {
     // ========= حسابات مساعدة =========
     prepareDataForPrediction(rawData) {
         return rawData
-            .filter(reading => reading.abstraction && !isNaN(parseFloat(reading.abstraction)))
-            .map((reading, index) => ({
-                index: index,
-                date: new Date(reading.readingDate),
-                value: parseFloat(reading.abstraction),
-                wellId: reading.wellId
-            }))
+            .filter(reading => {
+                // التحقق من جميع أشكال البيانات الممكنة
+                const abstraction = reading.corrected_abstraction || 
+                                   reading.estimated_abstraction ||
+                                   reading.monthly_abstraction_m3 || 
+                                   reading.abstraction ||
+                                   reading.abstraction_m3;
+                const dateValue = reading.reading_date || reading.readingDate || reading.date;
+                
+                return abstraction && !isNaN(parseFloat(abstraction)) && dateValue;
+            })
+            .map((reading, index) => {
+                // استخدام البيانات المُصححة أولاً، ثم الأصلية
+                const abstraction = parseFloat(reading.corrected_abstraction) || 
+                                   parseFloat(reading.estimated_abstraction) ||
+                                   parseFloat(reading.monthly_abstraction_m3) || 
+                                   parseFloat(reading.abstraction) ||
+                                   parseFloat(reading.abstraction_m3) || 0;
+                                   
+                const dateValue = reading.reading_date || reading.readingDate || reading.date;
+                const wellId = reading.well_id || reading.wellId || reading.id || reading.well_number;
+                
+                return {
+                    index: index,
+                    date: new Date(dateValue),
+                    value: abstraction,
+                    wellId: wellId
+                };
+            })
             .sort((a, b) => a.date - b.date);
     }
 
