@@ -3879,7 +3879,8 @@
         console.log(`📅 أحدث قراءة في قاعدة البيانات: ${latestData[0].reading_date}`);
       }
       
-      // ثانياً: جلب كل البيانات
+      // ثانياً: جلب كل البيانات (بدون حد أقصى)
+      console.log('📥 جاري جلب كامل البيانات من قاعدة البيانات...');
       const { data, error } = await supabase
         .from('monthly_readings')
         .select(`
@@ -3887,6 +3888,21 @@
           wells(well_code, well_name)
         `)
         .order('reading_date', { ascending: false });
+        
+      // فحص إضافي: جلب عدد البيانات الكامل
+      const { count, error: countError } = await supabase
+        .from('monthly_readings')
+        .select('*', { count: 'exact', head: true });
+        
+      if (!countError && count !== null) {
+        console.log(`📊 إجمالي البيانات في قاعدة البيانات: ${count} قراءة`);
+        console.log(`📥 تم جلب: ${data ? data.length : 0} قراءة`);
+        
+        if (data && data.length < count) {
+          console.warn(`⚠️ تحذير: تم جلب ${data.length} من أصل ${count} قراءة في قاعدة البيانات`);
+          console.warn('قد يكون هناك حد أقصى مفروض على الاستعلام');
+        }
+      }
       
       if (error) throw error;
       
@@ -3919,6 +3935,17 @@
           const maxDate = new Date(Math.max(...allDates));
           console.log(`📈 النطاق الزمني الكامل: من ${minDate.toLocaleDateString('ar')} إلى ${maxDate.toLocaleDateString('ar')}`);
           console.log(`📈 النطاق بالسنوات: من ${minDate.getFullYear()} إلى ${maxDate.getFullYear()}`);
+          
+          // التحقق من وجود فجوة في البيانات
+          const oldestInData = minDate.getFullYear();
+          const oldestInDB = new Date(statsData[0].reading_date).getFullYear();
+          
+          if (oldestInData > oldestInDB) {
+            console.warn(`⚠️ تم اكتشاف فجوة في البيانات!`);
+            console.warn(`أقدم بيانات في قاعدة البيانات: ${oldestInDB}`);
+            console.warn(`أقدم بيانات تم جلبها: ${oldestInData}`);
+            console.warn(`البيانات المفقودة: من ${oldestInDB} إلى ${oldestInData - 1}`);
+          }
         }
         
         updateAvailableMonthsRange(data);
