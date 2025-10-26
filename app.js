@@ -2500,8 +2500,21 @@
       case 'specific_year':
         const selectedYear = document.getElementById('selectedYear')?.value;
         if (selectedYear) {
-          startDate = new Date(parseInt(selectedYear), 0, 1);
-          endDate = new Date(parseInt(selectedYear), 11, 31);
+          const yearNum = parseInt(selectedYear);
+          const currentYear = new Date().getFullYear();
+          
+          // التحقق من معقولية السنة
+          if (yearNum < 1970) {
+            alert('يجب أن تكون السنة 1970 أو أحدث');
+            return allReadings;
+          }
+          if (yearNum > currentYear + 20) {
+            alert(`يجب أن تكون السنة ${currentYear + 20} أو أقل`);
+            return allReadings;
+          }
+          
+          startDate = new Date(yearNum, 0, 1);
+          endDate = new Date(yearNum, 11, 31);
         } else {
           return allReadings;
         }
@@ -2634,7 +2647,20 @@
       case 'specific_year':
         const selectedYear = document.getElementById('selectedYear')?.value;
         if (selectedYear) {
-          return { year: parseInt(selectedYear) };
+          const yearNum = parseInt(selectedYear);
+          const currentYear = now.getFullYear();
+          
+          // التحقق من معقولية السنة
+          if (yearNum < 1970) {
+            alert('يجب أن تكون السنة 1970 أو أحدث');
+            return { year: currentYear };
+          }
+          if (yearNum > currentYear + 20) {
+            alert(`يجب أن تكون السنة ${currentYear + 20} أو أقل`);
+            return { year: currentYear };
+          }
+          
+          return { year: yearNum };
         }
         return { year: now.getFullYear() };
         
@@ -3051,14 +3077,27 @@
       throw new Error('يجب اختيار السنتين للمقارنة');
     }
     
+    // التحقق من معقولية السنوات
+    const firstYearNum = parseInt(firstYear);
+    const secondYearNum = parseInt(secondYear);
+    const currentYear = new Date().getFullYear();
+    
+    if (firstYearNum < 1970 || firstYearNum > currentYear + 20) {
+      throw new Error(`يجب أن تكون السنة الأولى بين 1970 و ${currentYear + 20}`);
+    }
+    
+    if (secondYearNum < 1970 || secondYearNum > currentYear + 20) {
+      throw new Error(`يجب أن تكون السنة الثانية بين 1970 و ${currentYear + 20}`);
+    }
+    
     const firstPeriod = allReadings.filter(reading => {
       const date = new Date(reading.reading_date);
-      return date.getFullYear() == firstYear;
+      return date.getFullYear() == firstYearNum;
     });
     
     const secondPeriod = allReadings.filter(reading => {
       const date = new Date(reading.reading_date);
-      return date.getFullYear() == secondYear;
+      return date.getFullYear() == secondYearNum;
     });
 
     const firstTotal = firstPeriod.reduce((sum, r) => sum + (parseFloat(r.monthly_abstraction_m3) || 0), 0);
@@ -3070,12 +3109,12 @@
     return {
       type: 'comparative',
       period1: { 
-        name: `سنة ${firstYear}`, 
+        name: `سنة ${firstYearNum}`, 
         total: firstTotal, 
         count: firstPeriod.length 
       },
       period2: { 
-        name: `سنة ${secondYear}`, 
+        name: `سنة ${secondYearNum}`, 
         total: secondTotal, 
         count: secondPeriod.length 
       },
