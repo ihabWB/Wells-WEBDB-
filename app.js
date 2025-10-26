@@ -2472,9 +2472,12 @@
         console.log(`الشهر المحدد: ${selectedMonth}`);
         if (selectedMonth) {
           const [year, month] = selectedMonth.split('-');
+          console.log(`تفكيك التاريخ: سنة=${year}, شهر=${month}`);
           startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
           endDate = new Date(parseInt(year), parseInt(month), 0);
-          console.log(`تواريخ محسوبة: من ${startDate.toLocaleDateString('ar')} إلى ${endDate.toLocaleDateString('ar')}`);
+          console.log(`تواريخ محسوبة: من ${startDate.toISOString()} إلى ${endDate.toISOString()}`);
+          console.log(`تواريخ بالعربي: من ${startDate.toLocaleDateString('ar')} إلى ${endDate.toLocaleDateString('ar')}`);
+          console.log(`نطاق مطلوب: ${startDate.getTime()} إلى ${endDate.getTime()}`);
         } else {
           console.warn('لم يتم اختيار شهر محدد، إرجاع جميع البيانات');
           return allReadings;
@@ -2702,12 +2705,12 @@
       console.log('عينة التواريخ:', sampleDates);
     }
     
-    const filteredData = data.filter(reading => {
+    const filteredData = data.filter((reading, index) => {
       // التحقق من جميع أشكال تواريخ القراءة الممكنة
       const dateValue = reading.reading_date || reading.readingDate || reading.date || reading.measurement_date;
       
       if (!dateValue) {
-        console.log('قراءة بدون تاريخ:', reading);
+        if (index < 3) console.log(`قراءة ${index} بدون تاريخ:`, Object.keys(reading));
         return false;
       }
       
@@ -2718,21 +2721,27 @@
       } else if (dateValue instanceof Date) {
         readingDate = dateValue;
       } else {
-        console.log('تنسيق تاريخ غير مدعوم:', dateValue);
+        if (index < 3) console.log(`تنسيق تاريخ غير مدعوم في ${index}:`, dateValue);
         return false;
       }
       
       // التحقق من صحة التاريخ
       if (isNaN(readingDate.getTime())) {
-        console.log('تاريخ غير صحيح:', dateValue);
+        if (index < 3) console.log(`تاريخ غير صحيح في ${index}:`, dateValue);
         return false;
       }
       
-      const inRange = readingDate >= startDate && readingDate <= endDate;
-      if (inRange) {
-        console.log(`✓ قراءة في النطاق: ${dateValue} -> ${readingDate.toLocaleDateString('ar')}`);
-      } else {
-        console.log(`✗ قراءة خارج النطاق: ${dateValue} -> ${readingDate.toLocaleDateString('ar')}`);
+      const readingTime = readingDate.getTime();
+      const startTime = startDate.getTime();
+      const endTime = endDate.getTime();
+      
+      const inRange = readingTime >= startTime && readingTime <= endTime;
+      
+      if (index < 5 || inRange) {  // عرض أول 5 عناصر أو العناصر في النطاق
+        console.log(`قراءة ${index}: ${dateValue} -> ${readingDate.toISOString()}`);
+        console.log(`  التوقيت: ${readingTime} (${readingDate.toLocaleDateString('ar')})`);
+        console.log(`  النطاق: ${startTime} إلى ${endTime}`);
+        console.log(`  في النطاق؟ ${inRange ? '✓' : '✗'}`);
       }
       
       return inRange;
