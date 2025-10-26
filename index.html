@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Wells- Database- (PWA)</title>
+  <title>Wells-0013 Database- (PWA)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#0e7490" />
@@ -14,9 +14,287 @@
   <style>
     #map { width:100%; height:62vh; border:1px solid #ccc; border-radius:10px; }
     .hint { color:#7b8a9a; font-size:0.9rem; }
+    
+    /* لوحة تحكم الخريطة */
+    .map-controls-panel {
+      background: #f8f9fa;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 15px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 15px;
+    }
+    
+    .control-section {
+      background: white;
+      padding: 12px;
+      border-radius: 6px;
+      border: 1px solid #e8e8e8;
+    }
+    
+    .control-section h4 {
+      margin: 0 0 10px 0;
+      color: #2c3e50;
+      font-size: 14px;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 5px;
+    }
+    
+    .layers-control {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    
+    .layers-control label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 4px;
+      transition: background-color 0.2s;
+    }
+    
+    .layers-control label:hover {
+      background-color: #f0f0f0;
+    }
+    
+    .search-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    
+    .search-controls input {
+      padding: 6px 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+    
+    .search-controls button {
+      padding: 6px 12px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: background-color 0.2s;
+    }
+    
+    .btn-secondary {
+      background-color: #6c757d;
+      color: white;
+    }
+    
+    .btn-secondary:hover {
+      background-color: #5a6268;
+    }
+    
+    .btn-clear {
+      background-color: #dc3545;
+      color: white;
+    }
+    
+    .btn-clear:hover {
+      background-color: #c82333;
+    }
+    
+    .measurement-tools {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    
+    .tool-btn {
+      padding: 8px 12px;
+      border: 1px solid #007bff;
+      background-color: white;
+      color: #007bff;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: all 0.2s;
+    }
+    
+    .tool-btn:hover {
+      background-color: #007bff;
+      color: white;
+    }
+    
+    .tool-btn.active {
+      background-color: #007bff;
+      color: white;
+    }
+    
+    .measurement-results {
+      margin-top: 10px;
+      padding: 8px;
+      background-color: #f8f9fa;
+      border-radius: 4px;
+      font-size: 12px;
+      min-height: 20px;
+    }
+    
+    .filter-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    
+    .filter-controls select {
+      padding: 6px 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+    
+    .map-info {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 10px;
+      padding: 8px 0;
+      border-top: 1px solid #eee;
+    }
+    
+    .map-stats {
+      display: flex;
+      gap: 15px;
+      font-size: 12px;
+      color: #666;
+    }
+    
+    .map-stats span {
+      padding: 4px 8px;
+      background-color: #f0f0f0;
+      border-radius: 4px;
+    }
+    
+    /* Well Status Colors */
+    .well-marker-active {
+      background-color: #28a745;
+      border-color: #1e7e34;
+    }
+    
+    .well-marker-inactive {
+      background-color: #dc3545;
+      border-color: #c82333;
+    }
+    
+    .well-marker-maintenance {
+      background-color: #ffc107;
+      border-color: #e0a800;
+    }
+    
+    /* Well Popup Styles */
+    .well-popup {
+      font-family: Arial, sans-serif;
+      max-width: 280px;
+    }
+    
+    .well-popup .popup-details {
+      margin: 8px 0;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    
+    .well-popup .popup-details div {
+      margin: 4px 0;
+    }
+    
+    .well-popup .coordinates {
+      color: #666;
+      font-size: 11px;
+    }
+    
+    .well-popup .popup-actions {
+      margin-top: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    
+    .well-popup .popup-link {
+      display: inline-block;
+      padding: 4px 8px;
+      background-color: #007bff;
+      color: white;
+      text-decoration: none;
+      border-radius: 3px;
+      font-size: 11px;
+      text-align: center;
+    }
+    
+    .well-popup .popup-link:hover {
+      background-color: #0056b3;
+    }
+    
+    .well-popup .popup-btn {
+      padding: 4px 8px;
+      background-color: #28a745;
+      color: white;
+      border: none;
+      border-radius: 3px;
+      font-size: 11px;
+      cursor: pointer;
+    }
+    
+    .well-popup .popup-btn:hover {
+      background-color: #1e7e34;
+    }
+    
+    .status-active { color: #28a745; font-weight: bold; }
+    .status-inactive { color: #dc3545; font-weight: bold; }
+    .status-maintenance { color: #ffc107; font-weight: bold; }
+    
+    /* Search and Measurement Labels */
+    .search-center-marker {
+      font-size: 16px !important;
+    }
+    
+    .distance-label, .area-label {
+      border: none !important;
+      background: transparent !important;
+    }
+    
+    .monitoring-point {
+      font-size: 16px !important;
+    }
+    
+    @media (max-width: 768px) {
+      .map-controls-panel {
+        grid-template-columns: 1fr;
+      }
+      
+      .search-controls,
+      .measurement-tools {
+        flex-direction: row;
+        flex-wrap: wrap;
+      }
+      
+      .map-info {
+        flex-direction: column;
+        gap: 10px;
+        align-items: flex-start;
+      }
+      
+      .well-popup {
+        max-width: 200px;
+      }
+    }
   </style>
+  
+  <!-- External CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+  
   <!-- Libraries -->
   <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script defer src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/proj4@2.10.0/dist/proj4.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -1065,9 +1343,72 @@
     </section>
 
     <section id="mapPanel" class="panel">
-      <h2>Wells Map</h2>
+      <h2>🗺️ خريطة الآبار المتقدمة</h2>
+      
+      <!-- لوحة تحكم الخريطة -->
+      <div class="map-controls-panel">
+        <div class="control-section">
+          <h4>📊 طبقات البيانات</h4>
+          <div class="layers-control">
+            <label><input type="checkbox" id="wellsLayer" checked> 🔵 الآبار</label>
+            <label><input type="checkbox" id="regionsLayer"> 🗺️ المناطق الإدارية</label>
+            <label><input type="checkbox" id="networksLayer"> 🔗 شبكات المياه</label>
+            <label><input type="checkbox" id="monitoringLayer"> 📊 نقاط المراقبة</label>
+            <label><input type="checkbox" id="clustersLayer" checked> 🎯 تجميع النقاط</label>
+          </div>
+        </div>
+        
+        <div class="control-section">
+          <h4>🔍 البحث الجغرافي</h4>
+          <div class="search-controls">
+            <input type="text" id="locationSearch" placeholder="البحث بالموقع أو الإحداثيات">
+            <input type="number" id="searchRadius" placeholder="نصف القطر (متر)" value="1000">
+            <button id="searchLocation" class="btn-secondary">بحث</button>
+            <button id="clearSearch" class="btn-clear">مسح</button>
+          </div>
+        </div>
+        
+        <div class="control-section">
+          <h4>📏 أدوات القياس</h4>
+          <div class="measurement-tools">
+            <button id="measureDistance" class="tool-btn">📏 قياس المسافة</button>
+            <button id="measureArea" class="tool-btn">📐 قياس المساحة</button>
+            <button id="clearMeasurements" class="tool-btn">🗑️ مسح القياسات</button>
+          </div>
+          <div id="measurementResults" class="measurement-results"></div>
+        </div>
+        
+        <div class="control-section">
+          <h4>🎨 تصفية البيانات</h4>
+          <div class="filter-controls">
+            <select id="wellStatusFilter">
+              <option value="">جميع الحالات</option>
+              <option value="active">نشط</option>
+              <option value="inactive">غير نشط</option>
+              <option value="maintenance">صيانة</option>
+            </select>
+            <select id="wellTypeFilter">
+              <option value="">جميع الأنواع</option>
+              <option value="domestic">منزلي</option>
+              <option value="agricultural">زراعي</option>
+              <option value="industrial">صناعي</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      
+      <!-- الخريطة -->
       <div id="map"></div>
-      <p class="hint">Coordinates are stored as EPSG:28191 and converted to WGS84 for display.</p>
+      
+      <!-- معلومات الخريطة -->
+      <div class="map-info">
+        <div id="mapStats" class="map-stats">
+          <span id="wellsCount">الآبار: 0</span>
+          <span id="visibleWells">المرئية: 0</span>
+          <span id="selectedWells">المحددة: 0</span>
+        </div>
+        <p class="hint">الإحداثيات محفوظة بنظام EPSG:28191 ومحولة إلى WGS84 للعرض</p>
+      </div>
     </section>
   </main>
 
