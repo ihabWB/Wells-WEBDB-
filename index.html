@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Wells-V.3 Database- (PWA)</title>
+  <title>Wells-0013 Database- (PWA)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#0e7490" />
@@ -709,7 +709,7 @@
       <div class="report-controls">
         <div class="control-group">
           <label>نوع التقرير:</label>
-          <select id="reportType">
+          <select id="reportType" onchange="handleReportTypeChange()">
             <option value="monthly">تقرير شهري</option>
             <option value="annual">تقرير سنوي</option>
             <option value="comparative">مقارنة زمنية</option>
@@ -721,7 +721,7 @@
         <!-- Monthly Report Filters -->
         <div id="monthlyFilters" class="control-group" style="display: none;">
           <label>فترة التقرير الشهري:</label>
-          <select id="monthlyPeriod">
+          <select id="monthlyPeriod" onchange="handleMonthlyPeriodChange()">
             <option value="current_month">الشهر الحالي</option>
             <option value="last_month">الشهر الماضي</option>
             <option value="last_6_months">آخر 6 أشهر</option>
@@ -735,7 +735,7 @@
         <!-- Annual Report Filters -->
         <div id="annualFilters" class="control-group" style="display: none;">
           <label>فترة التقرير السنوي:</label>
-          <select id="annualPeriod">
+          <select id="annualPeriod" onchange="handleAnnualPeriodChange()">
             <option value="current_year">السنة الحالية</option>
             <option value="last_year">السنة الماضية</option>
             <option value="specific_year">سنة محددة</option>
