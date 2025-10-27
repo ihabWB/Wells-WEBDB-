@@ -41,8 +41,15 @@
     panel.classList.add('active');
 
     if (id === 'mapPanel') {
-      ensureMap().then(() => {
-        renderMap();
+      ensureMap().then(async () => {
+        // تحميل البيانات التجريبية أولاً
+        await loadTestWellsData();
+        // استخدام refreshWells لتحميل البيانات الحقيقية إذا كانت متوفرة
+        await refreshWells();
+        // إذا لم تنجح، استخدم renderMap بدون بيانات ليحمل البيانات التجريبية
+        if (!supabase) {
+          await renderMap();
+        }
         setTimeout(() => { if (map) map.invalidateSize(); }, 120);
       });
     }
@@ -101,7 +108,28 @@
 
   // Wells table
   async function refreshWells() {
-    if (!supabase || !tblWells) return;
+    console.log('🔄 تحديث جدول الآبار...', { supabase: !!supabase, tblWells: !!tblWells });
+    
+    if (!supabase) {
+      console.warn('❌ Supabase غير متوفر، تخطي تحديث الجدول');
+      // لا نعيد return هنا، فقط نتخطى تحديث الجدول
+      if (map) {
+        console.log('🗺️ تحديث الخريطة بالبيانات التجريبية...');
+        await renderMap();
+      }
+      return;
+    }
+    
+    if (!tblWells) {
+      console.warn('❌ جدول الآبار غير موجود، تخطي تحديث الجدول');
+      // نحدث الخريطة فقط
+      if (map) {
+        console.log('🗺️ تحديث الخريطة بدون جدول...');
+        await renderMap();
+      }
+      return;
+    }
+    
     const q = (filterText?.value || '').trim();
     let query = supabase
       .from('wells')
@@ -114,8 +142,15 @@
     const { data, error } = await query;
     if (error) {
       console.warn('Refresh wells error:', error.message);
+      // حتى عند الخطأ، نحدث الخريطة بالبيانات التجريبية
+      if (map) {
+        console.log('🗺️ تحديث الخريطة بالبيانات التجريبية بعد خطأ في قاعدة البيانات...');
+        await renderMap();
+      }
       return;
     }
+    
+    // تحديث الجدول
     tblWells.innerHTML = (data || []).map(w => `
       <tr>
         <td>${esc(w.well_code)}</td>
@@ -128,8 +163,13 @@
       </tr>
     `).join('');
     
+    console.log('✅ تم تحديث جدول الآبار مع', (data || []).length, 'بئر');
+    
     // Update map markers if map is already loaded
-    if (map) renderMap(data || []);
+    if (map) {
+      console.log('🗺️ تحديث الخريطة ببيانات قاعدة البيانات...');
+      await renderMap(data || []);
+    }
   }
   if (btnRefresh) btnRefresh.addEventListener('click', refreshWells);
   if (filterText) {
@@ -398,6 +438,76 @@
   let currentMeasurementTool = null;
   let measurementData = { distances: [], areas: [] };
   let wellsData = []; // لحفظ بيانات الآبار للاستخدام في Heat Map
+
+  // تحميل بيانات تجريبية للاختبار
+  async function loadTestWellsData() {
+    if (!supabase) {
+      console.log('📊 تحميل بيانات تجريبية للآبار...');
+      window.testWellsData = [
+        {
+          well_code: 'RML-001',
+          well_name: 'بئر رام الله الرئيسي',
+          governorate: 'رام الله',
+          district: 'البيرة',
+          village: 'رام الله',
+          aquifer: 'الحجر الجيري الأعلى',
+          x: 172000,
+          y: 149000,
+          status: 'نشط',
+          well_type: 'إنتاج'
+        },
+        {
+          well_code: 'NBS-002',
+          well_name: 'بئر نابلس الشمالي',
+          governorate: 'نابلس',
+          district: 'نابلس',
+          village: 'نابلس',
+          aquifer: 'الحجر الجيري الأعلى',
+          x: 173000,
+          y: 180000,
+          status: 'نشط',
+          well_type: 'مراقبة'
+        },
+        {
+          well_code: 'JEN-003',
+          well_name: 'بئر جنين المركزي',
+          governorate: 'جنين',
+          district: 'جنين',
+          village: 'جنين',
+          aquifer: 'الحجر الجيري السفلي',
+          x: 175000,
+          y: 200000,
+          status: 'نشط',
+          well_type: 'إنتاج'
+        },
+        {
+          well_code: 'BTL-004',
+          well_name: 'بئر بيت لحم الجنوبي',
+          governorate: 'بيت لحم',
+          district: 'بيت لحم',
+          village: 'بيت لحم',
+          aquifer: 'الحجر الجيري الأعلى',
+          x: 171000,
+          y: 120000,
+          status: 'صيانة',
+          well_type: 'إنتاج'
+        },
+        {
+          well_code: 'HBN-005',
+          well_name: 'بئر الخليل الشرقي',
+          governorate: 'الخليل',
+          district: 'الخليل',
+          village: 'الخليل',
+          aquifer: 'الحجر الجيري الأعلى',
+          x: 168000,
+          y: 100000,
+          status: 'نشط',
+          well_type: 'مراقبة'
+        }
+      ];
+      console.log('✅ تم تحميل', window.testWellsData.length, 'بئر تجريبي');
+    }
+  }
 
   async function ensureMap() {
     if (map) return map;
@@ -1193,21 +1303,37 @@
   }
 
   async function renderMap(existing) {
-    if (!map || !supabase) return;
+    console.log('🔄 محاولة تحديث خريطة الآبار...', { map: !!map, supabase: !!supabase });
+    
+    if (!map) {
+      console.warn('❌ الخريطة غير مهيئة');
+      return;
+    }
     
     console.log('🔄 تحديث خريطة الآبار...');
     
     let rows = existing;
     if (!Array.isArray(rows)) {
-      const { data, error } = await supabase
-        .from('wells')
-        .select('well_code, well_name, governorate, district, village, aquifer, x, y, status, well_type')
-        .limit(1000);
-      if (error) {
-        console.warn('خطأ في تحميل بيانات الآبار للخريطة:', error.message);
-        return;
+      if (supabase) {
+        console.log('📊 تحميل بيانات الآبار من قاعدة البيانات...');
+        const { data, error } = await supabase
+          .from('wells')
+          .select('well_code, well_name, governorate, district, village, aquifer, x, y, status, well_type')
+          .limit(1000);
+        if (error) {
+          console.warn('خطأ في تحميل بيانات الآبار للخريطة:', error.message);
+          // استخدام بيانات تجريبية عند الخطأ
+          rows = window.testWellsData || [];
+          console.log('📊 استخدام بيانات تجريبية:', rows.length, 'بئر');
+        } else {
+          rows = data || [];
+          console.log('📊 تم تحميل', rows.length, 'بئر من قاعدة البيانات');
+        }
+      } else {
+        // استخدام البيانات التجريبية مباشرة
+        rows = window.testWellsData || [];
+        console.log('📊 استخدام بيانات تجريبية:', rows.length, 'بئر');
       }
-      rows = data || [];
     }
 
     // تنظيف الطبقات
@@ -1216,14 +1342,25 @@
     
     const bounds = [];
     let addedWells = 0;
+    let skippedWells = 0;
+
+    console.log('🔄 معالجة', rows.length, 'بئر...');
 
     for (const well of rows) {
-      if (well == null || well.x == null || well.y == null) continue;
+      if (well == null || well.x == null || well.y == null) {
+        skippedWells++;
+        continue;
+      }
       
       const latlon = toWgs84From28191(well.x, well.y);
-      if (!latlon) continue;
+      if (!latlon) {
+        console.warn('⚠️ فشل في تحويل الإحداثيات للبئر:', well.well_code, 'x:', well.x, 'y:', well.y);
+        skippedWells++;
+        continue;
+      }
       
       const [lat, lon] = latlon;
+      console.log('📍 معالجة البئر:', well.well_code, 'lat:', lat, 'lon:', lon);
       
       // إنشاء أيقونة حسب حالة البئر
       const wellIcon = createWellIcon(well);
@@ -1245,15 +1382,17 @@
       const clustersEnabled = document.getElementById('clustersLayer')?.checked !== false;
       if (clustersEnabled && clusterGroup) {
         clusterGroup.addLayer(marker);
-      } else {
+        console.log('✅ تمت إضافة البئر للتجميع:', well.well_code);
+      } else if (markersLayer) {
         markersLayer.addLayer(marker);
+        console.log('✅ تمت إضافة البئر للطبقة العادية:', well.well_code);
       }
       
       bounds.push([lat, lon]);
       addedWells++;
     }
 
-    console.log(`✅ تم إضافة ${addedWells} بئر للخريطة`);
+    console.log(`✅ تم إضافة ${addedWells} بئر للخريطة، تم تجاهل ${skippedWells} بئر`);
 
     // حفظ بيانات الآبار للـ Heat Map
     wellsData = rows.filter(well => 
@@ -5122,4 +5261,12 @@
   window.handleReportTypeChange = handleReportTypeChange;
   window.handleMonthlyPeriodChange = handleMonthlyPeriodChange;
   window.handleAnnualPeriodChange = handleAnnualPeriodChange;
+  
+  // تحميل البيانات الأولية عند بدء التطبيق
+  setTimeout(async () => {
+    console.log('🚀 تحميل البيانات الأولية...');
+    await loadWellsToDropdowns();
+    await refreshWells();
+    console.log('✅ تم تحميل البيانات الأولية');
+  }, 1000);
 })();
