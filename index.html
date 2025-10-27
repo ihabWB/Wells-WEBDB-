@@ -151,6 +151,21 @@
       font-size: 12px;
     }
     
+    .filter-controls button {
+      padding: 8px 12px;
+      border: 1px solid #007bff;
+      border-radius: 4px;
+      background: #f8f9fa;
+      color: #007bff;
+      font-size: 12px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    
+    .filter-controls button:hover {
+      background: #e9ecef;
+    }
+    
     .map-info {
       display: flex;
       justify-content: space-between;
@@ -1437,7 +1452,17 @@
               <option value="domestic">منزلي</option>
               <option value="agricultural">زراعي</option>
               <option value="industrial">صناعي</option>
+              <option value="monitoring">مراقبة</option>
             </select>
+            <select id="wellAquiferFilter">
+              <option value="">جميع الأحواض</option>
+              <option value="upper_cenomanian">الحجر الجيري الأعلى</option>
+              <option value="lower_cenomanian">الحجر الجيري السفلي</option>
+              <option value="western">الغربي</option>
+              <option value="eastern">الشرقي</option>
+              <option value="northern">الشمالي</option>
+            </select>
+            <button type="button" id="resetFilters" class="btn-secondary">🔄 إعادة تعيين</button>
           </div>
         </div>
       </div>
