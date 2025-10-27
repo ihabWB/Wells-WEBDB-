@@ -388,17 +388,16 @@
     return (s || '').toString().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   }
 
-  // Advanced Map System with Multiple Layers and Features
+  // Advanced Map System with Wells Clustering and Heat Map
   let map = null;
   let markersLayer = null;
   let clusterGroup = null;
-  let regionsLayer = null;
-  let networksLayer = null;
-  let monitoringLayer = null;
+  let heatmapLayer = null;
   let searchLayer = null;
   let measurementLayers = null;
   let currentMeasurementTool = null;
   let measurementData = { distances: [], areas: [] };
+  let wellsData = []; // لحفظ بيانات الآبار للاستخدام في Heat Map
 
   async function ensureMap() {
     if (map) return map;
@@ -486,11 +485,10 @@
       clusterGroup = L.layerGroup();
     }
     
-    // طبقات أخرى
+    // طبقة الآبار العادية
     markersLayer = L.layerGroup();
-    regionsLayer = L.layerGroup();
-    networksLayer = L.layerGroup();
-    monitoringLayer = L.layerGroup();
+    
+    // طبقة البحث والقياس
     searchLayer = L.layerGroup();
     measurementLayers = L.layerGroup().addTo(map);
     
@@ -498,18 +496,24 @@
     clusterGroup.addTo(map);
     markersLayer.addTo(map);
     
-    console.log('📊 تم إنشاء طبقات البيانات');
+    console.log('📊 تم إنشاء طبقات الآبار والتجميع');
   }
 
   function initializeMapControls() {
-    // ربط أحداث التحكم في الطبقات
+    // ربط أحداث التحكم في الطبقات المبسطة
     const wellsLayerControl = document.getElementById('wellsLayer');
     if (wellsLayerControl) {
       wellsLayerControl.addEventListener('change', function(e) {
         if (e.target.checked) {
-          map.addLayer(clusterGroup);
+          const clusteringEnabled = document.getElementById('clustersLayer')?.checked;
+          if (clusteringEnabled) {
+            map.addLayer(clusterGroup);
+          } else {
+            map.addLayer(markersLayer);
+          }
         } else {
           map.removeLayer(clusterGroup);
+          map.removeLayer(markersLayer);
         }
         updateMapStats();
       });
@@ -522,39 +526,11 @@
       });
     }
 
-    const regionsLayerControl = document.getElementById('regionsLayer');
-    if (regionsLayerControl) {
-      regionsLayerControl.addEventListener('change', function(e) {
-        if (e.target.checked) {
-          map.addLayer(regionsLayer);
-          loadRegionsData();
-        } else {
-          map.removeLayer(regionsLayer);
-        }
-      });
-    }
-
-    const networksLayerControl = document.getElementById('networksLayer');
-    if (networksLayerControl) {
-      networksLayerControl.addEventListener('change', function(e) {
-        if (e.target.checked) {
-          map.addLayer(networksLayer);
-          loadNetworksData();
-        } else {
-          map.removeLayer(networksLayer);
-        }
-      });
-    }
-
-    const monitoringLayerControl = document.getElementById('monitoringLayer');
-    if (monitoringLayerControl) {
-      monitoringLayerControl.addEventListener('change', function(e) {
-        if (e.target.checked) {
-          map.addLayer(monitoringLayer);
-          loadMonitoringData();
-        } else {
-          map.removeLayer(monitoringLayer);
-        }
+    // ضبط Heat Map
+    const heatmapLayerControl = document.getElementById('heatmapLayer');
+    if (heatmapLayerControl) {
+      heatmapLayerControl.addEventListener('change', function(e) {
+        toggleHeatmap(e.target.checked);
       });
     }
 
@@ -625,6 +601,102 @@
     }
     
     updateMapStats();
+  }
+
+  // دالة Heat Map
+  function toggleHeatmap(enabled) {
+    if (!map) return;
+    
+    if (enabled) {
+      if (wellsData && wellsData.length > 0) {
+        // تحضير البيانات للـ Heat Map
+        const heatmapData = wellsData.map(well => {
+          const intensity = well.finalValue || well.estimated_abstraction || well.monthly_abstraction_m3 || well.abstraction || 1;
+          return [
+            parseFloat(well.gps_lat) || parseFloat(well.lat) || 0,
+            parseFloat(well.gps_lon) || parseFloat(well.lon) || 0,
+            Math.log(intensity + 1) / 10 // تطبيع الشدة
+          ];
+        }).filter(point => point[0] !== 0 && point[1] !== 0);
+
+        if (typeof L.heatLayer !== 'undefined' && heatmapData.length > 0) {
+          // إزالة Heat Map السابق إن وجد
+          if (heatmapLayer) {
+            map.removeLayer(heatmapLayer);
+          }
+          
+          heatmapLayer = L.heatLayer(heatmapData, {
+            radius: 25,
+            blur: 15,
+            maxZoom: 17,
+            max: 1,
+            gradient: {
+              0.0: 'blue',
+              0.2: 'cyan',
+              0.4: 'lime',
+              0.6: 'yellow',
+              0.8: 'orange',
+              1.0: 'red'
+            }
+          }).addTo(map);
+          
+          // إضافة وسيلة الإيضاح
+          addHeatmapLegend();
+          
+          console.log('🔥 تم تفعيل Heat Map مع', heatmapData.length, 'نقطة');
+        } else {
+          console.warn('⚠️ Heat Map غير متوفر أو لا توجد بيانات');
+          const toggle = document.getElementById('heatmapToggle');
+          if (toggle) toggle.checked = false;
+        }
+      } else {
+        console.warn('⚠️ لا توجد بيانات آبار للـ Heat Map');
+        const toggle = document.getElementById('heatmapToggle');
+        if (toggle) toggle.checked = false;
+      }
+    } else {
+      if (heatmapLayer) {
+        map.removeLayer(heatmapLayer);
+        heatmapLayer = null;
+        
+        // إزالة وسيلة الإيضاح
+        removeHeatmapLegend();
+        
+        console.log('❌ تم إلغاء Heat Map');
+      }
+    }
+  }
+
+  // إضافة وسيلة إيضاح Heat Map
+  function addHeatmapLegend() {
+    // إزالة الوسيلة السابقة إن وجدت
+    removeHeatmapLegend();
+    
+    const legend = L.control({ position: 'bottomleft' });
+    
+    legend.onAdd = function(map) {
+      const div = L.DomUtil.create('div', 'heat-map-legend');
+      div.innerHTML = `
+        <div style="font-weight: bold; margin-bottom: 5px;">كثافة الآبار</div>
+        <div class="heat-gradient"></div>
+        <div style="display: flex; justify-content: space-between; font-size: 10px;">
+          <span>قليل</span>
+          <span>كثير</span>
+        </div>
+      `;
+      return div;
+    };
+    
+    legend.addTo(map);
+    window.heatmapLegend = legend;
+  }
+
+  // إزالة وسيلة إيضاح Heat Map
+  function removeHeatmapLegend() {
+    if (window.heatmapLegend) {
+      map.removeControl(window.heatmapLegend);
+      window.heatmapLegend = null;
+    }
   }
 
   // دوال البحث الجغرافي
@@ -1183,6 +1255,20 @@
 
     console.log(`✅ تم إضافة ${addedWells} بئر للخريطة`);
 
+    // حفظ بيانات الآبار للـ Heat Map
+    wellsData = rows.filter(well => 
+      well != null && well.x != null && well.y != null
+    ).map(well => {
+      const latlon = toWgs84From28191(well.x, well.y);
+      if (!latlon) return null;
+      
+      return {
+        ...well,
+        gps_lat: latlon[0],
+        gps_lon: latlon[1]
+      };
+    }).filter(well => well !== null);
+
     // تكبير للحدود إذا وجدت آبار
     if (bounds.length) {
       map.fitBounds(bounds, { padding: [20, 20] });
@@ -1190,6 +1276,13 @@
     
     // تحديث الإحصائيات
     updateMapStats();
+    
+    // تحديث Heat Map إذا كان مفعلاً
+    const heatmapToggle = document.getElementById('heatmapLayer');
+    if (heatmapToggle && heatmapToggle.checked) {
+      toggleHeatmap(false); // إلغاء
+      toggleHeatmap(true);  // إعادة تفعيل مع البيانات الجديدة
+    }
   }
 
   function createWellIcon(well) {
