@@ -450,11 +450,11 @@
           governorate: 'رام الله',
           district: 'البيرة',
           village: 'رام الله',
-          aquifer: 'الحجر الجيري الأعلى',
+          aquifer: 'Upper Cenomanian',
           x: 172000,
           y: 149000,
-          status: 'نشط',
-          well_type: 'إنتاج'
+          status: 'active',
+          well_type: 'domestic'
         },
         {
           well_code: 'NBS-002',
@@ -462,11 +462,11 @@
           governorate: 'نابلس',
           district: 'نابلس',
           village: 'نابلس',
-          aquifer: 'الحجر الجيري الأعلى',
+          aquifer: 'Western',
           x: 173000,
           y: 180000,
-          status: 'نشط',
-          well_type: 'مراقبة'
+          status: 'active',
+          well_type: 'monitoring'
         },
         {
           well_code: 'JEN-003',
@@ -474,11 +474,11 @@
           governorate: 'جنين',
           district: 'جنين',
           village: 'جنين',
-          aquifer: 'الحجر الجيري السفلي',
+          aquifer: 'Lower Cenomanian',
           x: 175000,
           y: 200000,
-          status: 'نشط',
-          well_type: 'إنتاج'
+          status: 'active',
+          well_type: 'agricultural'
         },
         {
           well_code: 'BTL-004',
@@ -486,11 +486,11 @@
           governorate: 'بيت لحم',
           district: 'بيت لحم',
           village: 'بيت لحم',
-          aquifer: 'الحجر الجيري الأعلى',
+          aquifer: 'Eastern',
           x: 171000,
           y: 120000,
-          status: 'صيانة',
-          well_type: 'إنتاج'
+          status: 'maintenance',
+          well_type: 'domestic'
         },
         {
           well_code: 'HBN-005',
@@ -498,11 +498,35 @@
           governorate: 'الخليل',
           district: 'الخليل',
           village: 'الخليل',
-          aquifer: 'الحجر الجيري الأعلى',
+          aquifer: 'Northern',
           x: 168000,
           y: 100000,
-          status: 'نشط',
-          well_type: 'مراقبة'
+          status: 'inactive',
+          well_type: 'industrial'
+        },
+        {
+          well_code: 'TLK-006',
+          well_name: 'بئر طولكرم الغربي',
+          governorate: 'طولكرم',
+          district: 'طولكرم',
+          village: 'كفر زيباد',
+          aquifer: 'Western',
+          x: 170000,
+          y: 185000,
+          status: 'active',
+          well_type: 'domestic'
+        },
+        {
+          well_code: 'QLQ-007',
+          well_name: 'بئر قلقيلية المركزي',
+          governorate: 'قلقيلية',
+          district: 'قلقيلية',
+          village: 'قلقيلية',
+          aquifer: 'Upper Cenomanian',
+          x: 167000,
+          y: 175000,
+          status: 'active',
+          well_type: 'agricultural'
         }
       ];
       console.log('✅ تم تحميل', window.testWellsData.length, 'بئر تجريبي');
@@ -657,6 +681,12 @@
     
     const typeFilter = document.getElementById('wellTypeFilter');
     if (typeFilter) typeFilter.addEventListener('change', applyWellFilters);
+    
+    const aquiferFilter = document.getElementById('wellAquiferFilter');
+    if (aquiferFilter) aquiferFilter.addEventListener('change', applyWellFilters);
+    
+    const resetFilters = document.getElementById('resetFilters');
+    if (resetFilters) resetFilters.addEventListener('click', resetWellFilters);
     
     console.log('🎛️ تم ربط أدوات التحكم');
   }
@@ -1249,12 +1279,123 @@
   function applyWellFilters() {
     const statusFilter = document.getElementById('wellStatusFilter')?.value;
     const typeFilter = document.getElementById('wellTypeFilter')?.value;
+    const aquiferFilter = document.getElementById('wellAquiferFilter')?.value;
     
-    console.log(`🎨 تطبيق تصفية: الحالة=${statusFilter}, النوع=${typeFilter}`);
+    console.log(`🎨 تطبيق تصفية: الحالة=${statusFilter}, النوع=${typeFilter}, الحوض=${aquiferFilter}`);
     
-    // هنا يمكن تطبيق التصفية على العلامات
-    // هذا مثال بسيط
+    // التصفية على طبقة التجميع
+    if (clusterGroup) {
+      clusterGroup.eachLayer(function(layer) {
+        if (layer.wellData) {
+          const well = layer.wellData;
+          let shouldShow = true;
+          
+          // تصفية حسب الحالة
+          if (statusFilter && statusFilter !== '') {
+            const wellStatus = (well.status || well.current_status || '').toLowerCase();
+            if (wellStatus !== statusFilter.toLowerCase()) {
+              shouldShow = false;
+            }
+          }
+          
+          // تصفية حسب النوع
+          if (typeFilter && typeFilter !== '') {
+            const wellType = (well.well_type || '').toLowerCase();
+            if (wellType !== typeFilter.toLowerCase()) {
+              shouldShow = false;
+            }
+          }
+          
+          // تصفية حسب الحوض الجوفي
+          if (aquiferFilter && aquiferFilter !== '') {
+            const wellAquifer = (well.aquifer || '').toLowerCase();
+            if (!wellAquifer.includes(aquiferFilter.toLowerCase())) {
+              shouldShow = false;
+            }
+          }
+          
+          // إظهار أو إخفاء العلامة
+          if (shouldShow) {
+            layer.setOpacity(1);
+          } else {
+            layer.setOpacity(0.2);
+          }
+        }
+      });
+    }
     
+    // التصفية على الطبقة العادية
+    if (markersLayer) {
+      markersLayer.eachLayer(function(layer) {
+        if (layer.wellData) {
+          const well = layer.wellData;
+          let shouldShow = true;
+          
+          // تصفية حسب الحالة
+          if (statusFilter && statusFilter !== '') {
+            const wellStatus = (well.status || well.current_status || '').toLowerCase();
+            if (wellStatus !== statusFilter.toLowerCase()) {
+              shouldShow = false;
+            }
+          }
+          
+          // تصفية حسب النوع
+          if (typeFilter && typeFilter !== '') {
+            const wellType = (well.well_type || '').toLowerCase();
+            if (wellType !== typeFilter.toLowerCase()) {
+              shouldShow = false;
+            }
+          }
+          
+          // تصفية حسب الحوض الجوفي
+          if (aquiferFilter && aquiferFilter !== '') {
+            const wellAquifer = (well.aquifer || '').toLowerCase();
+            if (!wellAquifer.includes(aquiferFilter.toLowerCase())) {
+              shouldShow = false;
+            }
+          }
+          
+          // إظهار أو إخفاء العلامة
+          if (shouldShow) {
+            layer.setOpacity(1);
+          } else {
+            layer.setOpacity(0.2);
+          }
+        }
+      });
+    }
+    
+    console.log('✅ تم تطبيق التصفية على الخريطة');
+    updateMapStats();
+  }
+
+  // إعادة تعيين الفلاتر
+  function resetWellFilters() {
+    console.log('🔄 إعادة تعيين الفلاتر...');
+    
+    // إعادة تعيين قيم الفلاتر
+    const statusFilter = document.getElementById('wellStatusFilter');
+    const typeFilter = document.getElementById('wellTypeFilter');
+    const aquiferFilter = document.getElementById('wellAquiferFilter');
+    
+    if (statusFilter) statusFilter.value = '';
+    if (typeFilter) typeFilter.value = '';
+    if (aquiferFilter) aquiferFilter.value = '';
+    
+    // إظهار جميع العلامات
+    if (clusterGroup) {
+      clusterGroup.eachLayer(function(layer) {
+        layer.setOpacity(1);
+      });
+    }
+    
+    if (markersLayer) {
+      markersLayer.eachLayer(function(layer) {
+        layer.setOpacity(1);
+      });
+    }
+    
+    console.log('✅ تم إعادة تعيين جميع الفلاتر');
     updateMapStats();
   }
 
@@ -1492,7 +1633,7 @@
         <hr style="margin: 8px 0;"/>
         <div class="popup-details">
           <div>📍 ${esc([well.governorate, well.district, well.village].filter(Boolean).join(' / ') || 'غير محدد')}</div>
-          <div>🌊 طبقة المياه: ${esc(well.aquifer || 'غير محدد')}</div>
+          <div>�️ الحوض الجوفي: ${esc(well.aquifer || 'غير محدد')}</div>
           <div>📊 الحالة: ${status}</div>
           <div>🏷️ النوع: ${wellType}</div>
           <div class="coordinates">
