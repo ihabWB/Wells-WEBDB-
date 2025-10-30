@@ -634,28 +634,47 @@
   }
 
   function initializeMapControls() {
-    // تبديل لوحة التحكم
-    const toggleBtn = document.getElementById('toggleMapControls');
-    const controlsPanel = document.getElementById('mapControlsPanel');
+    const toggleButton = document.getElementById('toggleSidebar');
+    const sidebar = document.getElementById('mapSidebar');
+    const closeButton = document.getElementById('closeSidebar');
     
-    if (toggleBtn && controlsPanel) {
-      // إخفاء اللوحة في البداية
-      controlsPanel.classList.remove('show');
-      
-      toggleBtn.addEventListener('click', function() {
-        const isVisible = controlsPanel.classList.contains('show');
+    if (toggleButton && sidebar) {
+      // Toggle sidebar open
+      toggleButton.addEventListener('click', function() {
+        sidebar.classList.add('open');
         
-        if (isVisible) {
-          // إخفاء اللوحة
-          controlsPanel.classList.remove('show');
-          toggleBtn.classList.remove('active');
-          toggleBtn.querySelector('.toggle-text').textContent = 'أدوات الخريطة';
-        } else {
-          // إظهار اللوحة
-          controlsPanel.classList.add('show');
-          toggleBtn.classList.add('active');
-          toggleBtn.querySelector('.toggle-text').textContent = 'إخفاء الأدوات';
+        // Update map container margin
+        const mapArea = document.querySelector('.map-area');
+        if (mapArea) {
+          mapArea.style.marginRight = '350px';
         }
+        
+        // Resize map after animation
+        setTimeout(() => {
+          if (map) {
+            map.invalidateSize();
+          }
+        }, 300);
+      });
+    }
+    
+    if (closeButton && sidebar) {
+      // Close sidebar
+      closeButton.addEventListener('click', function() {
+        sidebar.classList.remove('open');
+        
+        // Reset map container margin
+        const mapArea = document.querySelector('.map-area');
+        if (mapArea) {
+          mapArea.style.marginRight = '0';
+        }
+        
+        // Resize map after animation
+        setTimeout(() => {
+          if (map) {
+            map.invalidateSize();
+          }
+        }, 300);
       });
     }
     
@@ -1430,6 +1449,10 @@
     const visibleWellsEl = document.getElementById('visibleWells');
     const selectedWellsEl = document.getElementById('selectedWells');
     
+    // إحصائيات الشريط الجانبي
+    const totalWellsEl = document.getElementById('totalWells');
+    const sidebarVisibleWellsEl = document.getElementById('visibleWells');
+    
     if (!wellsCountEl || !visibleWellsEl || !selectedWellsEl) return;
     
     let totalWells = 0;
@@ -1454,6 +1477,18 @@
     wellsCountEl.textContent = `الآبار: ${totalWells}`;
     visibleWellsEl.textContent = `المرئية: ${visibleWells}`;
     selectedWellsEl.textContent = `المحددة: 0`; // سيتم تحديثها لاحقاً
+    
+    // تحديث إحصائيات الشريط الجانبي
+    if (totalWellsEl) {
+      totalWellsEl.textContent = totalWells;
+    }
+    if (sidebarVisibleWellsEl && sidebarVisibleWellsEl.id === 'visibleWells') {
+      // تجنب التداخل مع العنصر الرئيسي
+      const sidebarVisible = document.querySelector('.well-stats #visibleWells');
+      if (sidebarVisible) {
+        sidebarVisible.textContent = visibleWells;
+      }
+    }
   }
 
   function toWgs84From28191(x, y) {
