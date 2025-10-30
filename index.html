@@ -1147,6 +1147,159 @@
       min-height: 20px;
     }
     
+    /* لوحة تفاصيل البئر */
+    .details-panel {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 90%;
+      max-width: 600px;
+      max-height: 80vh;
+      background: linear-gradient(145deg, 
+        rgba(255, 255, 255, 0.98) 0%, 
+        rgba(248, 249, 250, 0.98) 100%);
+      backdrop-filter: blur(20px);
+      border-radius: 16px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+      z-index: 2000;
+      overflow: hidden;
+      border: 1px solid rgba(52, 152, 219, 0.2);
+    }
+    
+    .details-header {
+      background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+      color: white;
+      padding: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    
+    .details-header h3 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .close-details {
+      background: rgba(255, 255, 255, 0.2);
+      border: none;
+      color: white;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s ease;
+    }
+    
+    .close-details:hover {
+      background: rgba(255, 255, 255, 0.3);
+      transform: scale(1.1);
+    }
+    
+    .details-content {
+      padding: 20px;
+      max-height: 60vh;
+      overflow-y: auto;
+      color: #2c3e50;
+    }
+    
+    /* تحسين عناصر الإدخال لطبقات الخريطة */
+    .control-item input[type="radio"] {
+      margin-left: 0;
+      margin-right: 12px;
+      transform: scale(1.2);
+      accent-color: #3498db;
+    }
+    
+    /* تفاصيل البئر */
+    .well-details {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    
+    .detail-section {
+      margin-bottom: 25px;
+      padding: 15px;
+      background: rgba(52, 152, 219, 0.05);
+      border-radius: 10px;
+      border-left: 4px solid #3498db;
+    }
+    
+    .detail-section h4 {
+      margin: 0 0 15px 0;
+      color: #2c3e50;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .detail-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+    }
+    
+    .detail-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      background: white;
+      border-radius: 6px;
+      border: 1px solid rgba(52, 152, 219, 0.1);
+    }
+    
+    .detail-label {
+      font-weight: 600;
+      color: #34495e;
+      font-size: 13px;
+    }
+    
+    .detail-value {
+      color: #2c3e50;
+      font-weight: 500;
+      font-size: 13px;
+    }
+    
+    .detail-value.status-active {
+      color: #27ae60;
+      font-weight: 600;
+    }
+    
+    .detail-value.status-inactive {
+      color: #e74c3c;
+      font-weight: 600;
+    }
+    
+    .detail-value.status-maintenance {
+      color: #f39c12;
+      font-weight: 600;
+    }
+    
+    .detail-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid rgba(52, 152, 219, 0.2);
+    }
+    
+    .detail-actions button {
+      flex: 1;
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+    
     .layers-control label.heat-map-label {
       color: #d63384;
       font-weight: 500;
@@ -2264,6 +2417,27 @@
             <!-- تبويب الطبقات -->
             <div id="layers-tab" class="tab-content active">
               <div class="tool-group">
+                <h4><i class="fas fa-map"></i> طبقات الخريطة الأساسية</h4>
+                <div class="layers-control">
+                  <label class="control-item">
+                    <input type="radio" name="baseLayer" id="osmLayer" checked>
+                    <span class="control-icon">🗺️</span>
+                    <span class="control-text">خريطة الشوارع</span>
+                  </label>
+                  <label class="control-item">
+                    <input type="radio" name="baseLayer" id="satelliteLayer">
+                    <span class="control-icon">🛰️</span>
+                    <span class="control-text">صور الأقمار الصناعية</span>
+                  </label>
+                  <label class="control-item">
+                    <input type="radio" name="baseLayer" id="topoLayer">
+                    <span class="control-icon">🏔️</span>
+                    <span class="control-text">خريطة طبوغرافية</span>
+                  </label>
+                </div>
+              </div>
+              
+              <div class="tool-group">
                 <h4><i class="fas fa-eye"></i> عرض البيانات</h4>
                 <div class="layers-control">
                   <label class="control-item">
@@ -2385,6 +2559,19 @@
               <span id="selectedWells">المحددة: 0</span>
             </div>
             <p class="hint">الإحداثيات محفوظة بنظام EPSG:28191 ومحولة إلى WGS84 للعرض</p>
+          </div>
+          
+          <!-- لوحة تفاصيل البئر -->
+          <div id="wellDetailsPanel" class="details-panel" style="display: none;">
+            <div class="details-header">
+              <h3><i class="fas fa-info-circle"></i> تفاصيل البئر</h3>
+              <button onclick="closeDetailsPanel()" class="close-details">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>
+            <div id="detailsContent" class="details-content">
+              <!-- سيتم ملء المحتوى ديناميكياً -->
+            </div>
           </div>
         </div>
       </div>
