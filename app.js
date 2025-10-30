@@ -634,6 +634,31 @@
   }
 
   function initializeMapControls() {
+    // تبديل لوحة التحكم
+    const toggleBtn = document.getElementById('toggleMapControls');
+    const controlsPanel = document.getElementById('mapControlsPanel');
+    
+    if (toggleBtn && controlsPanel) {
+      // إخفاء اللوحة في البداية
+      controlsPanel.classList.remove('show');
+      
+      toggleBtn.addEventListener('click', function() {
+        const isVisible = controlsPanel.classList.contains('show');
+        
+        if (isVisible) {
+          // إخفاء اللوحة
+          controlsPanel.classList.remove('show');
+          toggleBtn.classList.remove('active');
+          toggleBtn.querySelector('.toggle-text').textContent = 'أدوات الخريطة';
+        } else {
+          // إظهار اللوحة
+          controlsPanel.classList.add('show');
+          toggleBtn.classList.add('active');
+          toggleBtn.querySelector('.toggle-text').textContent = 'إخفاء الأدوات';
+        }
+      });
+    }
+    
     // ربط أحداث التحكم في الطبقات المبسطة
     const wellsLayerControl = document.getElementById('wellsLayer');
     if (wellsLayerControl) {
