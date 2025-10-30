@@ -438,6 +438,7 @@
   let currentMeasurementTool = null;
   let measurementData = { distances: [], areas: [] };
   let wellsData = []; // لحفظ بيانات الآبار للاستخدام في Heat Map
+  let baseLayers = {}; // طبقات الخريطة الأساسية
 
   // تحميل بيانات تجريبية للاختبار
   async function loadTestWellsData() {
@@ -562,7 +563,7 @@
     }).setView([31.95, 35.23], 9);
 
     // إضافة طبقات الخرائط الأساسية
-    const baseLayers = {
+    baseLayers = {
       'OpenStreetMap': L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
         attribution: '&copy; OpenStreetMap contributors'
@@ -589,8 +590,7 @@
     // إنشاء أدوات القياس
     initializeMeasurementTools();
     
-    // إضافة التحكم في الطبقات
-    L.control.layers(baseLayers, {}).addTo(map);
+    // ملاحظة: تم إزالة L.control.layers لتجنب التداخل مع أدوات التحكم المخصصة
     
     console.log('✅ تم تهيئة نظام الخريطة المتقدم');
     return map;
@@ -751,10 +751,51 @@
     const resetFilters = document.getElementById('resetFilters');
     if (resetFilters) resetFilters.addEventListener('click', resetWellFilters);
     
+    // ربط أحداث طبقات الخريطة الأساسية
+    const osmLayer = document.getElementById('osmLayer');
+    const satelliteLayer = document.getElementById('satelliteLayer');
+    const topoLayer = document.getElementById('topoLayer');
+    
+    if (osmLayer) {
+      osmLayer.addEventListener('change', function() {
+        if (this.checked) switchBaseLayer('OpenStreetMap');
+      });
+    }
+    
+    if (satelliteLayer) {
+      satelliteLayer.addEventListener('change', function() {
+        if (this.checked) switchBaseLayer('Satellite');
+      });
+    }
+    
+    if (topoLayer) {
+      topoLayer.addEventListener('change', function() {
+        if (this.checked) switchBaseLayer('Topographic');
+      });
+    }
+    
     console.log('🎛️ تم ربط أدوات التحكم');
     
     // Initialize tabs functionality
     initializeTabs();
+  }
+  
+  // دالة تبديل طبقة الخريطة الأساسية
+  function switchBaseLayer(layerName) {
+    if (!map || !baseLayers) return;
+    
+    // إزالة جميع الطبقات الأساسية
+    Object.values(baseLayers).forEach(layer => {
+      if (map.hasLayer(layer)) {
+        map.removeLayer(layer);
+      }
+    });
+    
+    // إضافة الطبقة المحددة
+    if (baseLayers[layerName]) {
+      baseLayers[layerName].addTo(map);
+      console.log(`🗺️ تم تبديل إلى طبقة: ${layerName}`);
+    }
   }
   
   // دالة إدارة التبويبات
@@ -1762,9 +1803,114 @@
     console.log('تم تحديد البئر:', well.well_code);
   }
 
-  function selectWellForDetails(wellCode) {
-    // هنا يمكن إضافة منطق لعرض تفاصيل البئر
+  // جعل الدالة عامة للوصول إليها من HTML
+  window.selectWellForDetails = function(wellCode) {
     console.log('عرض تفاصيل البئر:', wellCode);
+    
+    // دالة محلية لتنظيف النصوص
+    function escapeHtml(text) {
+      return (text || '').toString().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+    
+    // البحث عن البئر في البيانات
+    const well = wellsData.find(w => w.well_code === wellCode);
+    if (!well) {
+      console.error('البئر غير موجود:', wellCode);
+      alert('عذراً، لم يتم العثور على البئر المحدد!');
+      return;
+    }
+    
+    // إنشاء محتوى التفاصيل
+    const detailsContent = `
+      <div class="well-details">
+        <div class="detail-section">
+          <h4><i class="fas fa-info-circle"></i> معلومات أساسية</h4>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <span class="detail-label">كود البئر:</span>
+              <span class="detail-value">${escapeHtml(well.well_code || 'غير محدد')}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">اسم البئر:</span>
+              <span class="detail-value">${escapeHtml(well.well_name || 'غير محدد')}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">الحالة:</span>
+              <span class="detail-value status-${(well.status || '').toLowerCase()}">${well.status || 'غير محدد'}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">النوع:</span>
+              <span class="detail-value">${well.well_type || 'غير محدد'}</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="detail-section">
+          <h4><i class="fas fa-map-marker-alt"></i> الموقع</h4>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <span class="detail-label">المحافظة:</span>
+              <span class="detail-value">${escapeHtml(well.governorate || 'غير محدد')}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">القضاء:</span>
+              <span class="detail-value">${escapeHtml(well.district || 'غير محدد')}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">القرية:</span>
+              <span class="detail-value">${escapeHtml(well.village || 'غير محدد')}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">الحوض الجوفي:</span>
+              <span class="detail-value">${escapeHtml(well.aquifer || 'غير محدد')}</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="detail-section">
+          <h4><i class="fas fa-ruler-combined"></i> بيانات فنية</h4>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <span class="detail-label">العمق (م):</span>
+              <span class="detail-value">${well.depth_m || 'غير محدد'}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">القطر (مم):</span>
+              <span class="detail-value">${well.diameter_mm || 'غير محدد'}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">منسوب المياه (م):</span>
+              <span class="detail-value">${well.water_level_m || 'غير محدد'}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">الإنتاجية (م³/ساعة):</span>
+              <span class="detail-value">${well.productivity_m3_per_hour || 'غير محدد'}</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="detail-actions">
+          <button onclick="editWell('${well.well_code}')" class="btn-primary">
+            <i class="fas fa-edit"></i> تعديل البئر
+          </button>
+          <button onclick="showWellReadings('${well.well_code}')" class="btn-secondary">
+            <i class="fas fa-chart-line"></i> عرض القراءات
+          </button>
+        </div>
+      </div>
+    `;
+    
+    // عرض لوحة التفاصيل
+    const detailsContent_div = document.getElementById('detailsContent');
+    if (detailsContent_div) {
+      detailsContent_div.innerHTML = detailsContent;
+    }
+    
+    // إظهار اللوحة
+    const detailsPanel = document.getElementById('wellDetailsPanel');
+    if (detailsPanel) {
+      detailsPanel.style.display = 'block';
+    }
   }
 
   // View Readings functionality
@@ -2107,15 +2253,41 @@
   // Toggle details panel
   window.toggleDetailsPanel = function() {
     const detailsPanel = document.getElementById('detailsPanel');
-    const toggleIcon = document.getElementById('toggleIcon');
     
-    if (detailsPanel.style.display === 'none' || !detailsPanel.style.display) {
-      detailsPanel.style.display = 'block';
-      toggleIcon.textContent = '📋';
-    } else {
-      detailsPanel.style.display = 'none';
-      toggleIcon.textContent = '📊';
+    if (detailsPanel) {
+      if (detailsPanel.style.display === 'none' || !detailsPanel.style.display) {
+        detailsPanel.style.display = 'block';
+        console.log('📋 تم فتح لوحة التفاصيل');
+      } else {
+        detailsPanel.style.display = 'none';
+        console.log('📊 تم إغلاق لوحة التفاصيل');
+      }
     }
+  }
+  
+  // دالة لعرض قراءات البئر
+  window.showWellReadings = function(wellCode) {
+    console.log('📈 عرض قراءات البئر:', wellCode);
+    // إغلاق لوحة التفاصيل
+    toggleDetailsPanel();
+    // التبديل إلى تبويب القراءات
+    switchTab('readings');
+    // تحديد البئر في القائمة
+    const viewReadingsWell = document.getElementById('viewReadingsWell');
+    if (viewReadingsWell) {
+      viewReadingsWell.value = wellCode;
+    }
+  }
+  
+  // دالة لتعديل البئر
+  window.editWell = function(wellCode) {
+    console.log('✏️ تعديل البئر:', wellCode);
+    // إغلاق لوحة التفاصيل
+    toggleDetailsPanel();
+    // التبديل إلى تبويب إدارة الآبار
+    switchTab('wells');
+    // البحث عن البئر وفتح نافذة التعديل
+    // يمكن إضافة منطق إضافي هنا
   }
   
   // Switch between tabs
@@ -5507,6 +5679,24 @@
   window.handleReportTypeChange = handleReportTypeChange;
   window.handleMonthlyPeriodChange = handleMonthlyPeriodChange;
   window.handleAnnualPeriodChange = handleAnnualPeriodChange;
+  
+  // دوال إضافية للوحة التفاصيل
+  window.editWell = function(wellCode) {
+    console.log('تعديل البئر:', wellCode);
+    alert('ميزة تعديل البئر ستكون متاحة قريباً!');
+  };
+  
+  window.showWellReadings = function(wellCode) {
+    console.log('عرض قراءات البئر:', wellCode);
+    alert('ميزة عرض القراءات ستكون متاحة قريباً!');
+  };
+  
+  window.closeDetailsPanel = function() {
+    const detailsPanel = document.getElementById('wellDetailsPanel');
+    if (detailsPanel) {
+      detailsPanel.style.display = 'none';
+    }
+  };
   
   // تحميل البيانات الأولية عند بدء التطبيق
   setTimeout(async () => {
