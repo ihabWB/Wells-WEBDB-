@@ -32,19 +32,106 @@
       top: 20px;
       right: 20px;
       z-index: 1001;
-      width: 60px;
+      width: 80px;
       height: 60px;
       border: none;
       border-radius: 50%;
-      background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+      background: linear-gradient(135deg, #df4646 0%, #2980b9 100%);
       color: white;
       cursor: pointer;
-      box-shadow: 0 4px 20px rgba(52, 152, 219, 0.4);
+      box-shadow: 0 4px 20px rgba(235, 54, 51, 0.764);
       transition: all 0.3s ease;
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: 20px;
+    }
+    
+    /* تصميم رأس الخريطة */
+    .map-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding: 15px 20px;
+      background: linear-gradient(135deg, 
+        rgba(52, 152, 219, 0.1) 0%, 
+        rgba(155, 89, 182, 0.1) 50%, 
+        rgba(52, 152, 219, 0.1) 100%);
+      border-radius: 12px;
+      border: 1px solid rgba(52, 152, 219, 0.2);
+    }
+    
+    .map-title {
+      margin: 0;
+      color: #5c91c7;
+      font-size: 24px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .map-title i {
+      color: #3498db;
+      font-size: 28px;
+    }
+    
+    /* زر الأدوات المتقدمة */
+    .map-tools-btn {
+      background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+      color: white;
+      border: none;
+      border-radius: 25px;
+      padding: 12px 20px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .map-tools-btn::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, 
+        transparent, 
+        rgba(255, 255, 255, 0.2), 
+        transparent);
+      transition: left 0.5s;
+    }
+    
+    .map-tools-btn:hover::before {
+      left: 100%;
+    }
+    
+    .map-tools-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(52, 152, 219, 0.5);
+      background: linear-gradient(135deg, #2980b9 0%, #3498db 100%);
+    }
+    
+    .map-tools-btn i {
+      font-size: 16px;
+      transition: transform 0.3s ease;
+    }
+    
+    .map-tools-btn:hover i {
+      transform: rotate(90deg);
+    }
+    
+    .map-tools-btn span {
+      font-weight: 600;
+      letter-spacing: 0.5px;
     }
     
     .sidebar-toggle:hover {
@@ -64,16 +151,24 @@
     
     /* الشريط الجانبي */
     .map-sidebar {
-      position: absolute;
+      position: fixed;
       top: 0;
-      right: -400px;
-      width: 380px;
-      height: 100%;
-      background: linear-gradient(145deg, #667eea 0%, #764ba2 100%);
+      right: -420px;
+      width: 420px;
+      height: 100vh;
+      background: linear-gradient(145deg, 
+        rgba(44, 62, 80, 0.97) 0%, 
+        rgba(52, 73, 94, 0.97) 30%,
+        rgba(44, 62, 80, 0.97) 70%,
+        rgba(52, 73, 94, 0.97) 100%);
+      backdrop-filter: blur(15px);
+      border-left: 2px solid rgba(52, 152, 219, 0.3);
+      transition: right 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
       z-index: 1000;
-      transition: right 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-      box-shadow: -5px 0 25px rgba(0, 0, 0, 0.2);
-      overflow-y: auto;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: -8px 0 32px rgba(0, 0, 0, 0.3);
     }
     
     .map-sidebar.open {
@@ -82,13 +177,60 @@
     
     /* رأس الشريط الجانبي */
     .sidebar-header {
-      background: rgba(255, 255, 255, 0.1);
-      backdrop-filter: blur(10px);
-      padding: 20px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+      padding: 25px;
+      background: linear-gradient(135deg, 
+        rgba(52, 152, 219, 0.9) 0%, 
+        rgba(155, 89, 182, 0.9) 50%,
+        rgba(52, 152, 219, 0.9) 100%);
+      color: white;
       display: flex;
       justify-content: space-between;
       align-items: center;
+      border-bottom: 1px solid rgba(52, 152, 219, 0.3);
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .sidebar-header::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="1"/></pattern></defs><rect width="100" height="100" fill="url(%23grid)"/></svg>');
+      opacity: 0.3;
+    }
+    
+    .sidebar-header h3 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 700;
+      position: relative;
+      z-index: 1;
+    }
+    
+    .close-sidebar {
+      width: 45px;
+      height: 45px;
+      border: none;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      position: relative;
+      z-index: 1;
+    }
+    
+    .close-sidebar:hover {
+      background: rgba(255, 255, 255, 0.3);
+      transform: scale(1.1) rotate(90deg);
+      box-shadow: 0 4px 15px rgba(255, 255, 255, 0.2);
     }
     
     .sidebar-header h3 {
@@ -703,38 +845,77 @@
     /* تبويبات الأدوات المحترفة */
     .sidebar-tabs {
       display: flex;
-      background: rgba(52, 73, 94, 0.8);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      background: linear-gradient(135deg, 
+        rgba(44, 62, 80, 0.9) 0%, 
+        rgba(52, 73, 94, 0.9) 100%);
+      border-bottom: 1px solid rgba(52, 152, 219, 0.3);
+      border-radius: 0 0 12px 12px;
     }
     
     .tab-btn {
       flex: 1;
-      padding: 12px 8px;
+      padding: 15px 10px;
       border: none;
       background: transparent;
-      color: rgba(255, 255, 255, 0.7);
+      color: rgba(255, 255, 255, 0.8);
       cursor: pointer;
       transition: all 0.3s ease;
       font-size: 12px;
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 4px;
+      gap: 6px;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .tab-btn::before {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+      transform: scaleX(0);
+      transition: transform 0.3s ease;
     }
     
     .tab-btn i {
-      font-size: 16px;
+      font-size: 18px;
+      transition: all 0.3s ease;
     }
     
     .tab-btn:hover {
-      background: rgba(255, 255, 255, 0.1);
+      background: rgba(52, 152, 219, 0.1);
       color: white;
     }
     
+    .tab-btn:hover i {
+      transform: scale(1.1);
+      color: #3498db;
+    }
+    
+    .tab-btn:hover::before {
+      transform: scaleX(1);
+    }
+    
     .tab-btn.active {
-      background: linear-gradient(135deg, #3498db 0%, #9b59b6 100%);
+      background: linear-gradient(135deg, 
+        rgba(52, 152, 219, 0.2) 0%, 
+        rgba(155, 89, 182, 0.2) 100%);
       color: white;
-      box-shadow: inset 0 -3px 0 #ffd700;
+      box-shadow: inset 0 -3px 0 #3498db;
+    }
+    
+    .tab-btn.active::before {
+      transform: scaleX(1);
+      background: linear-gradient(135deg, #ffd700 0%, #ffed4a 100%);
+    }
+    
+    .tab-btn.active i {
+      color: #ffd700;
+      transform: scale(1.1);
     }
     
     /* محتوى التبويبات */
@@ -2039,14 +2220,20 @@
     </section>
 
     <section id="mapPanel" class="panel">
-      <h2>🗺️ خريطة الآبار المتقدمة</h2>
+      <!-- رأس الخريطة مع الزر -->
+      <div class="map-header">
+        <h2 class="map-title">
+          <i class="fas fa-map-marked-alt"></i>
+          خريطة الآبار 
+        </h2>
+        <button id="toggleSidebar" class="map-tools-btn" title="أدوات الخريطة المتقدمة">
+          <i class="fas fa-cogs"></i>
+          <span>أدوات متقدمة</span>
+        </button>
+      </div>
       
       <!-- حاوية الخريطة الرئيسية -->
       <div class="map-container">
-        <!-- زر تبديل الشريط الجانبي -->
-        <button id="toggleSidebar" class="sidebar-toggle" title="عرض أدوات الخريطة">
-          <i class="fas fa-tools"></i>
-        </button>
         
         <!-- الشريط الجانبي للأدوات -->
         <div id="mapSidebar" class="map-sidebar">
