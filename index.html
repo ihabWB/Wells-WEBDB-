@@ -15,102 +15,115 @@
     #map { width:100%; height:62vh; border:1px solid #ccc; border-radius:10px; }
     .hint { color:#7b8a9a; font-size:0.9rem; }
     
-    /* لوحة تحكم الخريطة */
-    .map-toolbar {
-      margin-bottom: 10px;
-      display: flex;
-      justify-content: flex-start;
+    /* حاوية الخريطة الاحترافية */
+    .map-container {
+      position: relative;
+      width: 100%;
+      height: 70vh;
+      background: #f8f9fa;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
     }
     
-    .toggle-btn {
+    /* زر تبديل الشريط الجانبي */
+    .sidebar-toggle {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      z-index: 1001;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: white;
       border: none;
-      border-radius: 8px;
+      border-radius: 50px;
       padding: 12px 20px;
       cursor: pointer;
       font-size: 14px;
-      font-weight: 500;
+      font-weight: 600;
       display: flex;
       align-items: center;
       gap: 8px;
-      box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
-      transition: all 0.3s ease;
-      position: relative;
-      overflow: hidden;
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      backdrop-filter: blur(10px);
     }
     
-    .toggle-btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    .sidebar-toggle:hover {
+      transform: translateY(-2px) scale(1.05);
+      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
     }
     
-    .toggle-btn:active {
-      transform: translateY(0);
+    .sidebar-toggle .toggle-icon {
+      font-size: 16px;
+      animation: pulse 2s infinite;
     }
     
-    .toggle-btn::before {
-      content: '';
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.2); }
+    }
+    
+    /* الشريط الجانبي */
+    .map-sidebar {
       position: absolute;
       top: 0;
-      left: -100%;
-      width: 100%;
+      right: -400px;
+      width: 380px;
       height: 100%;
-      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-      transition: left 0.5s;
+      background: linear-gradient(145deg, #667eea 0%, #764ba2 100%);
+      z-index: 1000;
+      transition: right 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: -5px 0 25px rgba(0, 0, 0, 0.2);
+      overflow-y: auto;
     }
     
-    .toggle-btn:hover::before {
-      left: 100%;
+    .map-sidebar.open {
+      right: 0;
     }
     
-    .toggle-icon {
-      font-size: 16px;
-      animation: rotate 2s linear infinite;
-    }
-    
-    @keyframes rotate {
-      from { transform: rotate(0deg); }
-      to { transform: rotate(360deg); }
-    }
-    
-    .toggle-btn:hover .toggle-icon {
-      animation-play-state: paused;
-    }
-    
-    .toggle-arrow {
-      transition: transform 0.3s ease;
-    }
-    
-    .toggle-btn.active .toggle-arrow {
-      transform: rotate(180deg);
-    }
-    
-    .map-controls-panel {
-      background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-      border: 1px solid #e0e4e7;
-      border-radius: 12px;
-      margin-bottom: 15px;
-      overflow: hidden;
-      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-      transform: translateY(-10px);
-      opacity: 0;
-      visibility: hidden;
-      max-height: 0;
-      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-    
-    .map-controls-panel.show {
-      transform: translateY(0);
-      opacity: 1;
-      visibility: visible;
-      max-height: 800px;
-    }
-    
-    .controls-container {
+    /* رأس الشريط الجانبي */
+    .sidebar-header {
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
       padding: 20px;
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .sidebar-header h3 {
+      color: white;
+      margin: 0;
+      font-size: 18px;
+      font-weight: 600;
+    }
+    
+    .close-btn {
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 35px;
+      height: 35px;
+      cursor: pointer;
+      font-size: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+    }
+    
+    .close-btn:hover {
+      background: rgba(255, 255, 255, 0.3);
+      transform: rotate(90deg);
+    }
+    
+    /* محتوى الشريط الجانبي */
+    .sidebar-content {
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
       gap: 20px;
     }
     .map-controls-panel {
@@ -125,27 +138,26 @@
     }
     
     .control-section {
-      background: rgba(255, 255, 255, 0.95);
+      background: rgba(255, 255, 255, 0.15);
       padding: 18px;
-      border-radius: 10px;
-      border: 1px solid rgba(255, 255, 255, 0.3);
-      backdrop-filter: blur(10px);
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      backdrop-filter: blur(15px);
       transition: all 0.3s ease;
     }
     
     .control-section:hover {
+      background: rgba(255, 255, 255, 0.2);
       transform: translateY(-2px);
-      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
     }
     
     .control-section h4 {
       margin: 0 0 15px 0;
-      color: #2c3e50;
+      color: white;
       font-size: 15px;
       font-weight: 600;
-      border-bottom: 2px solid #e8ecf3;
       padding-bottom: 8px;
+      border-bottom: 2px solid rgba(255, 255, 255, 0.3);
       position: relative;
     }
     
@@ -156,8 +168,20 @@
       left: 0;
       width: 30px;
       height: 2px;
-      background: linear-gradient(90deg, #667eea, #764ba2);
+      background: rgba(255, 255, 255, 0.8);
       border-radius: 1px;
+    }
+    
+    /* منطقة الخريطة */
+    .map-area {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      transition: margin-right 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    .map-container.sidebar-open .map-area {
+      margin-right: 380px;
     }
     
     .layers-control {
@@ -170,23 +194,174 @@
       display: flex;
       align-items: center;
       cursor: pointer;
-      padding: 8px 12px;
-      background: rgba(255, 255, 255, 0.7);
+      padding: 10px 12px;
+      background: rgba(255, 255, 255, 0.1);
       border-radius: 8px;
-      border: 1px solid rgba(0, 0, 0, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
       transition: all 0.2s ease;
       font-weight: 500;
+      color: white;
     }
     
     .layers-control label:hover {
-      background: rgba(255, 255, 255, 0.9);
+      background: rgba(255, 255, 255, 0.2);
       transform: translateX(3px);
     }
     
     .layers-control input[type="checkbox"] {
       margin-left: 8px;
       margin-right: 8px;
-      transform: scale(1.2);
+      transform: scale(1.3);
+      accent-color: #ffd700;
+    }
+    
+    .search-controls input,
+    .filter-controls select {
+      padding: 10px 12px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-radius: 8px;
+      font-size: 13px;
+      background: rgba(255, 255, 255, 0.9);
+      color: #2c3e50;
+      transition: all 0.2s ease;
+    }
+    
+    .search-controls input:focus,
+    .filter-controls select:focus {
+      outline: none;
+      border-color: #ffd700;
+      box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.3);
+      background: white;
+    }
+    
+    .search-controls button,
+    .filter-controls button,
+    .tool-btn {
+      padding: 10px 16px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      transition: all 0.2s ease;
+      color: #2c3e50;
+    }
+    
+    .btn-secondary {
+      background: linear-gradient(135deg, #ffd700 0%, #ffed4a 100%);
+      box-shadow: 0 2px 8px rgba(255, 215, 0, 0.3);
+    }
+    
+    .btn-secondary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(255, 215, 0, 0.5);
+    }
+    
+    .btn-clear {
+      background: linear-gradient(135deg, #ff6b6b 0%, #ff8e8e 100%);
+      color: white;
+      box-shadow: 0 2px 8px rgba(255, 107, 107, 0.3);
+    }
+    
+    .btn-clear:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(255, 107, 107, 0.5);
+    }
+    
+    .tool-btn {
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      box-shadow: 0 2px 8px rgba(255, 255, 255, 0.2);
+    }
+    
+    /* تحسينات الرسوم المتحركة والتفاعل */
+    .map-sidebar.open .sidebar-content {
+      animation: slideInContent 0.4s ease-out;
+    }
+    
+    @keyframes slideInContent {
+      from {
+        opacity: 0;
+        transform: translateX(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+    
+    .control-section {
+      transition: all 0.3s ease;
+    }
+    
+    .control-section:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    }
+    
+    /* تأثيرات المعلومات */
+    .well-stats {
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
+      border-radius: 12px;
+      padding: 15px;
+      margin-top: 15px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.9);
+      text-align: center;
+    }
+    
+    .stats-item {
+      display: inline-block;
+      margin: 0 10px;
+      padding: 5px 10px;
+      background: rgba(255, 215, 0, 0.2);
+      border-radius: 15px;
+      font-weight: 600;
+    }
+    
+    /* تحسين عناصر الإدخال */
+    .search-controls input::placeholder,
+    .filter-controls select option:first-child {
+      color: #7f8c8d;
+      font-style: italic;
+    }
+    
+    /* أيقونات متحركة */
+    .sidebar-toggle i,
+    .close-sidebar i {
+      transition: transform 0.3s ease;
+    }
+    
+    .sidebar-toggle:hover i {
+      transform: scale(1.2) rotate(5deg);
+    }
+    
+    .close-sidebar:hover i {
+      transform: scale(1.2) rotate(90deg);
+    }
+    
+    /* تصميم مراع للأجهزة المحمولة */
+    @media (max-width: 768px) {
+      .map-sidebar {
+        width: 100%;
+        right: -100%;
+      }
+      
+      .map-sidebar.open {
+        right: 0;
+      }
+      
+      .map-area {
+        margin-right: 0 !important;
+      }
+      
+      .sidebar-toggle {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 1001;
+      }
     }
     
     .search-controls,
@@ -1599,87 +1774,95 @@
     <section id="mapPanel" class="panel">
       <h2>🗺️ خريطة الآبار المتقدمة</h2>
       
-      <!-- زر تبديل لوحة التحكم -->
-      <div class="map-toolbar">
-        <button id="toggleMapControls" class="toggle-btn">
-          <span class="toggle-icon">⚙️</span>
-          <span class="toggle-text">أدوات الخريطة</span>
-          <span class="toggle-arrow">▼</span>
+      <!-- حاوية الخريطة الرئيسية -->
+      <div class="map-container">
+        <!-- زر تبديل الشريط الجانبي -->
+        <button id="toggleSidebar" class="sidebar-toggle">
+          <span class="toggle-icon">⚡</span>
+          <span class="toggle-text">أدوات</span>
         </button>
-      </div>
-      
-      <!-- لوحة تحكم الخريطة -->
-      <div id="mapControlsPanel" class="map-controls-panel">
-        <div class="controls-container">
-          <div class="control-section">
-            <h4>📊 عرض البيانات</h4>
-            <div class="layers-control">
-              <label class="wells-label"><input type="checkbox" id="wellsLayer" checked> 🔵 إظهار الآبار</label>
-              <label class="clustering-label"><input type="checkbox" id="clustersLayer" checked> 🎯 تجميع النقاط</label>
-              <label class="heat-map-label"><input type="checkbox" id="heatmapLayer"> 🔥 خريطة حرارية-Heat map</label>
-            </div>
+        
+        <!-- الشريط الجانبي للأدوات -->
+        <div id="mapSidebar" class="map-sidebar">
+          <div class="sidebar-header">
+            <h3>🛠️ أدوات الخريطة</h3>
+            <button id="closeSidebar" class="close-btn">&times;</button>
           </div>
           
-          <div class="control-section">
-            <h4>🔍 البحث الجغرافي</h4>
-            <div class="search-controls">
-              <input type="text" id="locationSearch" placeholder="البحث بالموقع أو الإحداثيات">
-              <input type="number" id="searchRadius" placeholder="نصف القطر (متر)" value="1000">
-              <button id="searchLocation" class="btn-secondary">بحث</button>
-              <button id="clearSearch" class="btn-clear">مسح</button>
+          <div class="sidebar-content">
+            <div class="control-section">
+              <h4>📊 عرض البيانات</h4>
+              <div class="layers-control">
+                <label class="wells-label"><input type="checkbox" id="wellsLayer" checked> 🔵 إظهار الآبار</label>
+                <label class="clustering-label"><input type="checkbox" id="clustersLayer" checked> 🎯 تجميع النقاط</label>
+                <label class="heat-map-label"><input type="checkbox" id="heatmapLayer"> 🔥 خريطة حرارية</label>
+              </div>
             </div>
-          </div>
-          
-          <div class="control-section">
-            <h4>📏 أدوات القياس</h4>
-            <div class="measurement-tools">
-              <button id="measureDistance" class="tool-btn">📏 قياس المسافة</button>
-              <button id="measureArea" class="tool-btn">📐 قياس المساحة</button>
-              <button id="clearMeasurements" class="tool-btn">🗑️ مسح القياسات</button>
+            
+            <div class="control-section">
+              <h4>🔍 البحث الجغرافي</h4>
+              <div class="search-controls">
+                <input type="text" id="locationSearch" placeholder="البحث بالموقع">
+                <input type="number" id="searchRadius" placeholder="نصف القطر (متر)" value="1000">
+                <button id="searchLocation" class="btn-secondary">بحث</button>
+                <button id="clearSearch" class="btn-clear">مسح</button>
+              </div>
             </div>
-            <div id="measurementResults" class="measurement-results"></div>
-          </div>
-          
-          <div class="control-section">
-            <h4>🎨 تصفية البيانات</h4>
-            <div class="filter-controls">
-              <select id="wellStatusFilter">
-                <option value="">جميع الحالات</option>
-                <option value="active">نشط</option>
-                <option value="inactive">غير نشط</option>
-                <option value="maintenance">صيانة</option>
-              </select>
-              <select id="wellTypeFilter">
-              <option value="">جميع الأنواع</option>
-              <option value="domestic">منزلي</option>
-              <option value="agricultural">زراعي</option>
-              <option value="industrial">صناعي</option>
-              <option value="monitoring">مراقبة</option>
-            </select>
-            <select id="wellAquiferFilter">
-              <option value="">جميع الأحواض</option>
-              <option value="upper_cenomanian">الحجر الجيري الأعلى</option>
-              <option value="lower_cenomanian">الحجر الجيري السفلي</option>
-              <option value="western">الغربي</option>
-              <option value="eastern">الشرقي</option>
-              <option value="northern">الشمالي</option>
-            </select>
-            <button type="button" id="resetFilters" class="btn-secondary">🔄 إعادة تعيين</button>
+            
+            <div class="control-section">
+              <h4>📏 أدوات القياس</h4>
+              <div class="measurement-tools">
+                <button id="measureDistance" class="tool-btn">📏 مسافة</button>
+                <button id="measureArea" class="tool-btn">📐 مساحة</button>
+                <button id="clearMeasurements" class="tool-btn">🗑️ مسح</button>
+              </div>
+              <div id="measurementResults" class="measurement-results"></div>
+            </div>
+            
+            <div class="control-section">
+              <h4>🎨 تصفية البيانات</h4>
+              <div class="filter-controls">
+                <select id="wellStatusFilter">
+                  <option value="">جميع الحالات</option>
+                  <option value="active">نشط</option>
+                  <option value="inactive">غير نشط</option>
+                  <option value="maintenance">صيانة</option>
+                </select>
+                <select id="wellTypeFilter">
+                  <option value="">جميع الأنواع</option>
+                  <option value="domestic">منزلي</option>
+                  <option value="agricultural">زراعي</option>
+                  <option value="industrial">صناعي</option>
+                  <option value="monitoring">مراقبة</option>
+                </select>
+                <select id="wellAquiferFilter">
+                  <option value="">جميع الأحواض</option>
+                  <option value="upper_cenomanian">الحجر الجيري الأعلى</option>
+                  <option value="lower_cenomanian">الحجر الجيري السفلي</option>
+                  <option value="western">الغربي</option>
+                  <option value="eastern">الشرقي</option>
+                  <option value="northern">الشمالي</option>
+                </select>
+                <button type="button" id="resetFilters" class="btn-secondary">🔄 إعادة تعيين</button>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-      
-      <!-- الخريطة -->
-      <div id="map"></div>
-      
-      <!-- معلومات الخريطة -->
-      <div class="map-info">
-        <div id="mapStats" class="map-stats">
-          <span id="wellsCount">الآبار: 0</span>
-          <span id="visibleWells">المرئية: 0</span>
-          <span id="selectedWells">المحددة: 0</span>
+        
+        <!-- منطقة الخريطة -->
+        <div class="map-area">
+          <div id="map"></div>
+          
+          <!-- معلومات الخريطة -->
+          <div class="map-info">
+            <div id="mapStats" class="map-stats">
+              <span id="wellsCount">الآبار: 0</span>
+              <span id="visibleWells">المرئية: 0</span>
+              <span id="selectedWells">المحددة: 0</span>
+            </div>
+            <p class="hint">الإحداثيات محفوظة بنظام EPSG:28191 ومحولة إلى WGS84 للعرض</p>
+          </div>
         </div>
-        <p class="hint">الإحداثيات محفوظة بنظام EPSG:28191 ومحولة إلى WGS84 للعرض</p>
       </div>
     </section>
   </main>
