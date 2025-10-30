@@ -656,7 +656,7 @@
           // فتح الشريط الجانبي
           sidebar.classList.add('open');
           if (mapArea) {
-            mapArea.style.marginRight = '350px';
+            mapArea.style.marginRight = '420px';
           }
           this.innerHTML = '<i class="fas fa-times"></i>';
           this.title = 'إخفاء أدوات الخريطة';
