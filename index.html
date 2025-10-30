@@ -28,29 +28,28 @@
     
     /* زر تبديل الشريط الجانبي */
     .sidebar-toggle {
-      position: absolute;
+      position: fixed;
       top: 20px;
       right: 20px;
       z-index: 1001;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
+      width: 60px;
+      height: 60px;
       border: none;
-      border-radius: 50px;
-      padding: 12px 20px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+      color: white;
       cursor: pointer;
-      font-size: 14px;
-      font-weight: 600;
+      box-shadow: 0 4px 20px rgba(52, 152, 219, 0.4);
+      transition: all 0.3s ease;
       display: flex;
       align-items: center;
-      gap: 8px;
-      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      backdrop-filter: blur(10px);
+      justify-content: center;
+      font-size: 20px;
     }
     
     .sidebar-toggle:hover {
-      transform: translateY(-2px) scale(1.05);
-      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+      transform: scale(1.1);
+      box-shadow: 0 6px 25px rgba(52, 152, 219, 0.6);
     }
     
     .sidebar-toggle .toggle-icon {
@@ -697,6 +696,274 @@
     .layers-control input[type="checkbox"] {
       margin-left: 8px;
       margin-right: 5px;
+    }
+    
+    /* ===== أنماط التبويبات المحترفة ===== */
+    
+    /* تبويبات الأدوات المحترفة */
+    .sidebar-tabs {
+      display: flex;
+      background: rgba(52, 73, 94, 0.8);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .tab-btn {
+      flex: 1;
+      padding: 12px 8px;
+      border: none;
+      background: transparent;
+      color: rgba(255, 255, 255, 0.7);
+      cursor: pointer;
+      transition: all 0.3s ease;
+      font-size: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+    
+    .tab-btn i {
+      font-size: 16px;
+    }
+    
+    .tab-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: white;
+    }
+    
+    .tab-btn.active {
+      background: linear-gradient(135deg, #3498db 0%, #9b59b6 100%);
+      color: white;
+      box-shadow: inset 0 -3px 0 #ffd700;
+    }
+    
+    /* محتوى التبويبات */
+    .tab-content {
+      display: none;
+      padding: 20px;
+      animation: fadeIn 0.3s ease;
+    }
+    
+    .tab-content.active {
+      display: block;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    /* مجموعات الأدوات */
+    .tool-group {
+      margin-bottom: 25px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
+      padding: 15px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .tool-group h4 {
+      margin: 0 0 15px 0;
+      color: #ffd700;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .tool-group h4 i {
+      font-size: 16px;
+    }
+    
+    /* عناصر التحكم المحسنة */
+    .control-item {
+      display: flex;
+      align-items: center;
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .control-item:hover {
+      background: rgba(255, 255, 255, 0.1);
+      transform: translateX(3px);
+    }
+    
+    .control-item input[type="checkbox"] {
+      margin-left: 0;
+      margin-right: 12px;
+      transform: scale(1.2);
+      accent-color: #ffd700;
+    }
+    
+    .control-icon {
+      margin-right: 8px;
+      font-size: 16px;
+    }
+    
+    .control-text {
+      color: white;
+      font-weight: 500;
+    }
+    
+    /* عناصر الإدخال والمرشحات */
+    .input-group {
+      margin-bottom: 15px;
+    }
+    
+    .input-group label {
+      display: block;
+      color: rgba(255, 255, 255, 0.8);
+      font-size: 12px;
+      margin-bottom: 5px;
+      font-weight: 500;
+    }
+    
+    .input-group input,
+    .filter-item select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.1);
+      color: white;
+      font-size: 13px;
+      transition: all 0.2s ease;
+      box-sizing: border-box;
+    }
+    
+    .input-group input:focus,
+    .filter-item select:focus {
+      outline: none;
+      border-color: #ffd700;
+      box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.3);
+      background: rgba(255, 255, 255, 0.15);
+    }
+    
+    .input-group input::placeholder {
+      color: rgba(255, 255, 255, 0.5);
+    }
+    
+    .filter-item {
+      margin-bottom: 15px;
+    }
+    
+    .filter-item label {
+      display: block;
+      color: rgba(255, 255, 255, 0.8);
+      font-size: 12px;
+      margin-bottom: 5px;
+      font-weight: 500;
+    }
+    
+    /* الأزرار المحسنة */
+    .btn-primary {
+      background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 16px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(52, 152, 219, 0.4);
+    }
+    
+    .btn-secondary {
+      background: linear-gradient(135deg, #ffd700 0%, #ffed4a 100%);
+      color: #2c3e50;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 16px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    
+    .btn-secondary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(255, 215, 0, 0.4);
+    }
+    
+    .btn-clear {
+      background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 16px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    
+    .btn-clear:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(231, 76, 60, 0.4);
+    }
+    
+    .full-width {
+      width: 100%;
+    }
+    
+    .tool-btn {
+      width: 100%;
+      background: rgba(255, 255, 255, 0.1);
+      color: white;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      padding: 12px 16px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    
+    .tool-btn:hover {
+      background: rgba(255, 255, 255, 0.2);
+      transform: translateY(-1px);
+    }
+    
+    .tool-btn.active {
+      background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
+      color: white;
+      border-color: #27ae60;
+    }
+    
+    /* نتائج القياسات */
+    .measurement-results {
+      margin-top: 15px;
+      padding: 10px;
+      background: rgba(255, 215, 0, 0.1);
+      border-radius: 8px;
+      border: 1px solid rgba(255, 215, 0, 0.3);
+      color: #ffd700;
+      font-size: 12px;
+      font-weight: 500;
+      min-height: 20px;
     }
     
     .layers-control label.heat-map-label {
@@ -1777,73 +2044,143 @@
       <!-- حاوية الخريطة الرئيسية -->
       <div class="map-container">
         <!-- زر تبديل الشريط الجانبي -->
-        <button id="toggleSidebar" class="sidebar-toggle">
-          <span class="toggle-icon">⚡</span>
-          <span class="toggle-text">أدوات</span>
+        <button id="toggleSidebar" class="sidebar-toggle" title="عرض أدوات الخريطة">
+          <i class="fas fa-tools"></i>
         </button>
         
         <!-- الشريط الجانبي للأدوات -->
         <div id="mapSidebar" class="map-sidebar">
           <div class="sidebar-header">
-            <h3>🛠️ أدوات الخريطة</h3>
-            <button id="closeSidebar" class="close-btn">&times;</button>
+            <h3><i class="fas fa-map"></i> أدوات الخريطة المتقدمة</h3>
+            <button id="closeSidebar" class="close-sidebar" title="إغلاق">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+          
+          <!-- تبويبات الأدوات -->
+          <div class="sidebar-tabs">
+            <button class="tab-btn active" data-tab="layers">
+              <i class="fas fa-layer-group"></i> الطبقات
+            </button>
+            <button class="tab-btn" data-tab="search">
+              <i class="fas fa-search"></i> البحث
+            </button>
+            <button class="tab-btn" data-tab="filters">
+              <i class="fas fa-filter"></i> التصفية
+            </button>
+            <button class="tab-btn" data-tab="tools">
+              <i class="fas fa-tools"></i> الأدوات
+            </button>
           </div>
           
           <div class="sidebar-content">
-            <div class="control-section">
-              <h4>📊 عرض البيانات</h4>
-              <div class="layers-control">
-                <label class="wells-label"><input type="checkbox" id="wellsLayer" checked> 🔵 إظهار الآبار</label>
-                <label class="clustering-label"><input type="checkbox" id="clustersLayer" checked> 🎯 تجميع النقاط</label>
-                <label class="heat-map-label"><input type="checkbox" id="heatmapLayer"> 🔥 خريطة حرارية</label>
+            <!-- تبويب الطبقات -->
+            <div id="layers-tab" class="tab-content active">
+              <div class="tool-group">
+                <h4><i class="fas fa-eye"></i> عرض البيانات</h4>
+                <div class="layers-control">
+                  <label class="control-item">
+                    <input type="checkbox" id="wellsLayer" checked>
+                    <span class="control-icon">🔵</span>
+                    <span class="control-text">إظهار الآبار</span>
+                  </label>
+                  <label class="control-item">
+                    <input type="checkbox" id="clustersLayer" checked>
+                    <span class="control-icon">🎯</span>
+                    <span class="control-text">تجميع النقاط</span>
+                  </label>
+                  <label class="control-item">
+                    <input type="checkbox" id="heatmapLayer">
+                    <span class="control-icon">🔥</span>
+                    <span class="control-text">خريطة حرارية</span>
+                  </label>
+                </div>
               </div>
             </div>
             
-            <div class="control-section">
-              <h4>🔍 البحث الجغرافي</h4>
-              <div class="search-controls">
-                <input type="text" id="locationSearch" placeholder="البحث بالموقع">
-                <input type="number" id="searchRadius" placeholder="نصف القطر (متر)" value="1000">
-                <button id="searchLocation" class="btn-secondary">بحث</button>
-                <button id="clearSearch" class="btn-clear">مسح</button>
+            <!-- تبويب البحث -->
+            <div id="search-tab" class="tab-content">
+              <div class="tool-group">
+                <h4><i class="fas fa-map-marker-alt"></i> البحث الجغرافي</h4>
+                <div class="search-controls">
+                  <div class="input-group">
+                    <input type="text" id="locationSearch" placeholder="البحث بالموقع أو الإحداثيات">
+                    <button id="searchLocation" class="btn-primary">
+                      <i class="fas fa-search"></i>
+                    </button>
+                  </div>
+                  <div class="input-group">
+                    <label for="searchRadius">نطاق البحث (متر)</label>
+                    <input type="number" id="searchRadius" value="1000" min="100" max="50000">
+                  </div>
+                  <button id="clearSearch" class="btn-clear full-width">
+                    <i class="fas fa-eraser"></i> مسح النتائج
+                  </button>
+                </div>
               </div>
             </div>
             
-            <div class="control-section">
-              <h4>📏 أدوات القياس</h4>
-              <div class="measurement-tools">
-                <button id="measureDistance" class="tool-btn">📏 مسافة</button>
-                <button id="measureArea" class="tool-btn">📐 مساحة</button>
-                <button id="clearMeasurements" class="tool-btn">🗑️ مسح</button>
+            <!-- تبويب التصفية -->
+            <div id="filters-tab" class="tab-content">
+              <div class="tool-group">
+                <h4><i class="fas fa-sliders-h"></i> تصفية البيانات</h4>
+                <div class="filter-controls">
+                  <div class="filter-item">
+                    <label for="wellStatusFilter">حالة البئر</label>
+                    <select id="wellStatusFilter">
+                      <option value="">جميع الحالات</option>
+                      <option value="active">نشط</option>
+                      <option value="inactive">غير نشط</option>
+                      <option value="maintenance">صيانة</option>
+                    </select>
+                  </div>
+                  
+                  <div class="filter-item">
+                    <label for="wellTypeFilter">نوع البئر</label>
+                    <select id="wellTypeFilter">
+                      <option value="">جميع الأنواع</option>
+                      <option value="domestic">منزلي</option>
+                      <option value="agricultural">زراعي</option>
+                      <option value="industrial">صناعي</option>
+                      <option value="monitoring">مراقبة</option>
+                    </select>
+                  </div>
+                  
+                  <div class="filter-item">
+                    <label for="wellAquiferFilter">الحوض الجوفي</label>
+                    <select id="wellAquiferFilter">
+                      <option value="">جميع الأحواض</option>
+                      <option value="upper_cenomanian">الحجر الجيري الأعلى</option>
+                      <option value="lower_cenomanian">الحجر الجيري السفلي</option>
+                      <option value="western">الغربي</option>
+                      <option value="eastern">الشرقي</option>
+                      <option value="northern">الشمالي</option>
+                    </select>
+                  </div>
+                  
+                  <button id="resetFilters" class="btn-secondary full-width">
+                    <i class="fas fa-undo"></i> إعادة تعيين الفلاتر
+                  </button>
+                </div>
               </div>
-              <div id="measurementResults" class="measurement-results"></div>
             </div>
             
-            <div class="control-section">
-              <h4>🎨 تصفية البيانات</h4>
-              <div class="filter-controls">
-                <select id="wellStatusFilter">
-                  <option value="">جميع الحالات</option>
-                  <option value="active">نشط</option>
-                  <option value="inactive">غير نشط</option>
-                  <option value="maintenance">صيانة</option>
-                </select>
-                <select id="wellTypeFilter">
-                  <option value="">جميع الأنواع</option>
-                  <option value="domestic">منزلي</option>
-                  <option value="agricultural">زراعي</option>
-                  <option value="industrial">صناعي</option>
-                  <option value="monitoring">مراقبة</option>
-                </select>
-                <select id="wellAquiferFilter">
-                  <option value="">جميع الأحواض</option>
-                  <option value="upper_cenomanian">الحجر الجيري الأعلى</option>
-                  <option value="lower_cenomanian">الحجر الجيري السفلي</option>
-                  <option value="western">الغربي</option>
-                  <option value="eastern">الشرقي</option>
-                  <option value="northern">الشمالي</option>
-                </select>
-                <button type="button" id="resetFilters" class="btn-secondary">🔄 إعادة تعيين</button>
+            <!-- تبويب الأدوات -->
+            <div id="tools-tab" class="tab-content">
+              <div class="tool-group">
+                <h4><i class="fas fa-ruler"></i> أدوات القياس</h4>
+                <div class="measurement-tools">
+                  <button id="measureDistance" class="tool-btn">
+                    <i class="fas fa-ruler"></i> قياس المسافة
+                  </button>
+                  <button id="measureArea" class="tool-btn">
+                    <i class="fas fa-draw-polygon"></i> قياس المساحة
+                  </button>
+                  <button id="clearMeasurements" class="btn-clear full-width">
+                    <i class="fas fa-trash"></i> مسح القياسات
+                  </button>
+                </div>
+                <div id="measurementResults" class="measurement-results"></div>
               </div>
             </div>
           </div>
