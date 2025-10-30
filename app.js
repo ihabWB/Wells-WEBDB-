@@ -639,14 +639,27 @@
     const closeButton = document.getElementById('closeSidebar');
     
     if (toggleButton && sidebar) {
-      // Toggle sidebar open
+      // Toggle sidebar open/close
       toggleButton.addEventListener('click', function() {
-        sidebar.classList.add('open');
-        
-        // Update map container margin
+        const isOpen = sidebar.classList.contains('open');
         const mapArea = document.querySelector('.map-area');
-        if (mapArea) {
-          mapArea.style.marginRight = '350px';
+        
+        if (isOpen) {
+          // إغلاق الشريط الجانبي
+          sidebar.classList.remove('open');
+          if (mapArea) {
+            mapArea.style.marginRight = '0';
+          }
+          this.innerHTML = '<i class="fas fa-tools"></i>';
+          this.title = 'عرض أدوات الخريطة';
+        } else {
+          // فتح الشريط الجانبي
+          sidebar.classList.add('open');
+          if (mapArea) {
+            mapArea.style.marginRight = '350px';
+          }
+          this.innerHTML = '<i class="fas fa-times"></i>';
+          this.title = 'إخفاء أدوات الخريطة';
         }
         
         // Resize map after animation
@@ -667,6 +680,12 @@
         const mapArea = document.querySelector('.map-area');
         if (mapArea) {
           mapArea.style.marginRight = '0';
+        }
+        
+        // تحديث زر التبديل الرئيسي
+        if (toggleButton) {
+          toggleButton.innerHTML = '<i class="fas fa-tools"></i>';
+          toggleButton.title = 'عرض أدوات الخريطة';
         }
         
         // Resize map after animation
@@ -733,6 +752,32 @@
     if (resetFilters) resetFilters.addEventListener('click', resetWellFilters);
     
     console.log('🎛️ تم ربط أدوات التحكم');
+    
+    // Initialize tabs functionality
+    initializeTabs();
+  }
+  
+  // دالة إدارة التبويبات
+  function initializeTabs() {
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    const tabContents = document.querySelectorAll('.tab-content');
+    
+    tabButtons.forEach(button => {
+      button.addEventListener('click', function() {
+        const targetTab = this.getAttribute('data-tab');
+        
+        // إزالة active من جميع الأزرار والمحتويات
+        tabButtons.forEach(btn => btn.classList.remove('active'));
+        tabContents.forEach(content => content.classList.remove('active'));
+        
+        // إضافة active للزر والمحتوى المحدد
+        this.classList.add('active');
+        const targetContent = document.getElementById(`${targetTab}-tab`);
+        if (targetContent) {
+          targetContent.classList.add('active');
+        }
+      });
+    });
   }
 
   function initializeMeasurementTools() {
