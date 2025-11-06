@@ -1946,7 +1946,8 @@
 
   // Chart instances
   let charts = {
-    annual: null
+    annual: null,
+    waterLevel: null
   };
 
   async function loadWellsForReadingsView() {
@@ -2738,12 +2739,17 @@
     // Create annual summary
     createAnnualSummary(validReadings);
     createAnnualChart(validReadings);
+    createWaterLevelChart(validReadings);
   }
 
   function destroyCharts() {
     if (charts.annual) {
       charts.annual.destroy();
       charts.annual = null;
+    }
+    if (charts.waterLevel) {
+      charts.waterLevel.destroy();
+      charts.waterLevel = null;
     }
   }
 
@@ -2914,6 +2920,154 @@
               label: function(context) {
                 const value = context.parsed.y;
                 return `Total: ${formatNumber(value)} m³`;
+              }
+            }
+          }
+        },
+        layout: {
+          padding: {
+            top: 10,
+            bottom: 5,
+            left: 5,
+            right: 5
+          }
+        },
+        elements: {
+          point: {
+            hoverBorderWidth: 3
+          }
+        }
+      }
+    });
+  }
+
+  // دالة إنشاء رسم بياني لمستوى المياه
+  function createWaterLevelChart(readings) {
+    const ctx = document.getElementById('waterLevelChart');
+    if (!ctx) return;
+
+    // Group readings by year and calculate average static water level
+    const yearlyData = {};
+    
+    readings.forEach(r => {
+      const year = new Date(r.reading_date).getFullYear();
+      const staticWL = r.static_water_level_m;
+      
+      if (staticWL && staticWL > 0) {
+        if (!yearlyData[year]) {
+          yearlyData[year] = { total: 0, count: 0 };
+        }
+        yearlyData[year].total += parseFloat(staticWL);
+        yearlyData[year].count += 1;
+      }
+    });
+
+    // Calculate averages
+    const years = Object.keys(yearlyData).sort();
+    const averages = years.map(year => 
+      yearlyData[year].total / yearlyData[year].count
+    );
+
+    if (years.length === 0) {
+      // Show message that no data is available
+      const context = ctx.getContext('2d');
+      context.clearRect(0, 0, ctx.width, ctx.height);
+      context.font = '14px Arial';
+      context.fillStyle = '#999';
+      context.textAlign = 'center';
+      context.fillText('لا توجد بيانات لمستوى المياه الثابت', ctx.width / 2, ctx.height / 2);
+      return;
+    }
+
+    // Destroy existing chart if exists
+    if (charts.waterLevel) {
+      charts.waterLevel.destroy();
+    }
+
+    charts.waterLevel = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: years,
+        datasets: [{
+          label: 'Average Static Water Level',
+          data: averages,
+          borderColor: '#1e40af',
+          backgroundColor: 'rgba(30, 64, 175, 0.1)',
+          borderWidth: 3,
+          pointBackgroundColor: '#1e40af',
+          pointBorderColor: '#ffffff',
+          pointBorderWidth: 2,
+          pointRadius: 5,
+          pointHoverRadius: 7,
+          fill: true,
+          tension: 0.3
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: {
+          intersect: false,
+          mode: 'index'
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            grid: {
+              color: 'rgba(255, 255, 255, 0.1)',
+              lineWidth: 1
+            },
+            ticks: {
+              color: '#a7b6c8',
+              font: {
+                size: 11
+              },
+              callback: function(value) {
+                return value.toFixed(1) + 'm';
+              }
+            },
+            title: {
+              display: true,
+              text: 'Static Water Level (m)',
+              color: '#a7b6c8',
+              font: {
+                size: 12,
+                weight: 'bold'
+              }
+            }
+          },
+          x: {
+            grid: {
+              display: false
+            },
+            ticks: {
+              color: '#a7b6c8',
+              font: {
+                size: 11,
+                weight: 'bold'
+              }
+            }
+          }
+        },
+        plugins: {
+          legend: {
+            display: false
+          },
+          tooltip: {
+            backgroundColor: 'rgba(11, 19, 36, 0.9)',
+            titleColor: '#e8eef5',
+            bodyColor: '#a7b6c8',
+            borderColor: '#1e40af',
+            borderWidth: 1,
+            cornerRadius: 6,
+            displayColors: false,
+            callbacks: {
+              title: function(context) {
+                return `Year ${context[0].label}`;
+              },
+              label: function(context) {
+                const value = context.parsed.y;
+                return `Avg Static WL: ${value.toFixed(2)} m`;
               }
             }
           }
